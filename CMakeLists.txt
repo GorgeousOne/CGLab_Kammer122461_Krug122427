@@ -58,7 +58,7 @@ target_link_libraries(framework glbinding glfw ${GLFW_LIBRARIES})
 # include headers in all following applications
 include_directories(application/include)
 
-add_executable(solar_system application/source/application_solar.cpp)
+add_executable(solar_system application/source/application_solar.cpp application/include/node.hpp application/source/node.cpp)
 target_link_libraries(solar_system framework)
 
 # MacOS doesnt support simple compat mode required for examples
@@ -67,7 +67,7 @@ if(NOT APPLE)
   option(BUILD_EXAMPLES     OFF)
 
   if(BUILD_EXAMPLES) 
-    add_executable(1_fixed application/source/application_fixed.cpp)
+    add_executable(1_fixed application/source/application_fixed.cpp application/include/node.hpp)
     target_link_libraries(1_fixed framework)
 
     add_executable(2_vbo application/source/application_vbo.cpp)

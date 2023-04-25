@@ -1,92 +1,101 @@
 #include "node.hpp"
 
-
-Node::Node(std::string const& name, std::shared_ptr<Node> parent) :
-    m_parent{parent},
+Node::Node(std::string const& name) :
+    m_parent{nullptr},
+    m_children{std::map<std::string, std::shared_ptr<Node>>{}},
     m_name{name},
+    m_path{""},
+    m_depth{0},
     m_localTransform{glm::mat4()},
-    m_children{std::map<std::string, std::shared_ptr<Node>>{}} {
-
-  if (nullptr != parent) {
-    m_path = parent->getPath() + parent->getName();
-    m_depth = parent->getDepth() + 1;
-    m_globalTransform = parent->getWorldTransform();
-
-  } else {
-    m_path = "";
-    m_depth = 0;
-    m_globalTransform = glm::mat4();
-  }
-}
+    m_globalTransform{glm::mat4()} {}
 
 std::shared_ptr<Node> Node::getParent() {
+  // return an empty shared pointer, indicating no parent
   return std::shared_ptr<Node>();
 }
 
 void Node::setParent(std::shared_ptr<Node> node) {
+  // set the parent of this node
   m_parent = node;
+  // update global transform based on new parent and local transform
   m_globalTransform = m_parent->getWorldTransform() * m_localTransform;
 }
 
 std::shared_ptr<Node> Node::getChild(std::string const& name) {
+  // find child by name in children map
   auto iter = m_children.find(name);
 
   if (iter != m_children.end()) {
+    // if found, return the shared pointer to the child
     return iter->second;
   }
+  // if not found, return nullptr
   return nullptr;
 }
 
 std::map<std::string, std::shared_ptr<Node>> const &Node::getChildrenList() {
+  // return the children map
   return m_children;
 }
 
 std::string const &Node::getName() {
+  // return the name of the node
   return m_name;
 }
 
 std::string const &Node::getPath() {
+  // return the path of the node
   return m_path;
 }
 
 int Node::getDepth() {
+  // return the depth of the node
   return m_depth;
 }
 
 glm::mat4 Node::getLocalTransform() {
+  // return the local transform of the node
   return m_localTransform;
 }
 
 void Node::setLocalTransform(const glm::mat4 &newTransform) {
+  // calculate relative transform between new and old local transform
   glm::mat4 relTransform = newTransform * glm::inverse(m_localTransform);
+  // set the new local transform
   m_localTransform = newTransform;
 
   for (auto& pair: m_children) {
+    // update global transform of children based on relative transform
     pair.second->m_globalTransform *= relTransform;
   }
 }
 
 glm::mat4 const &Node::getWorldTransform() {
+  // return the global transform of the node
   return m_globalTransform;
 }
 
 void Node::setWorldTransform(glm::mat4 const& newTransform) {
+  // calculate relative transform between new and old global transform
   glm::mat4 relTransform = newTransform * glm::inverse(m_globalTransform);
+  // set the new global transform
   m_globalTransform = newTransform;
 
   if (nullptr != m_parent) {
+    // update local transform based on new global transform and parent's world transform
     m_localTransform = newTransform * glm::inverse(m_parent->getWorldTransform());
   }
   for (auto &pair: m_children) {
+    // update global transform of children based on relative transform
     pair.second->m_globalTransform *= relTransform;
   }
 }
 
-void Node::addChildren(std::shared_ptr<Node> child) {
+void Node::addChild(std::shared_ptr<Node> child) {
   m_children.emplace(child->getName(), child);
 }
 
-std::shared_ptr<Node> Node::removeChildren(const std::string &name) {
+std::shared_ptr<Node> Node::removeChild(const std::string &name) {
   auto iter = m_children.find(name);
 
   if (iter != m_children.end()) {

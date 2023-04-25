@@ -2,15 +2,15 @@
 #define OPENGL_FRAMEWORK_GEOMETRY_NODE_HPP
 
 #include "node.hpp"
-#include "model.hpp"
+#include "structs.hpp"
 
 class GeometryNode : public Node {
 public:
-	GeometryNode(std::string const &name, std::shared_ptr<Node> parent, model const& geometry);
-	model const& getGeometry();
-	void setGeometry(model const& geometry);
+  GeometryNode(std::string const &name, model_object& geometry);
+  model_object const& getGeometry();
+  void setGeometry(model_object const& geometry);
 private:
-	model m_geometry;
+  model_object m_geometry;
 };
 #endif //OPENGL_FRAMEWORK_GEOMETRY_NODE_HPP
 

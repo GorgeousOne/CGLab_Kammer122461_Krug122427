@@ -19,6 +19,11 @@ using namespace gl;
 
 #include <iostream>
 
+#include <memory>
+#include <string>
+#include "geometry_node.hpp"
+#include "camera_node.hpp"
+
 ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  :Application{resource_path}
  ,planet_object{}
@@ -128,6 +133,35 @@ void ApplicationSolar::initializeGeometry() {
   planet_object.draw_mode = GL_TRIANGLES;
   // transfer number of indices to model object 
   planet_object.num_elements = GLsizei(planet_model.indices.size());
+}
+
+
+void ApplicationSolar::initializeSceneGraph() {
+  // Create the sun GeometryNode
+  m_scene_root = std::make_shared<Node>("root");
+
+  std::shared_ptr<Node> sun = std::make_shared<GeometryNode>("sun", planet_object);
+  // create camera
+  std::shared_ptr<Node> camera = std::make_shared<CameraNode>("camera", true, true, glm::mat4());
+  // Create child GeometryNodes for each plan, planet_object
+
+  std::vector<std::shared_ptr<Node>> planets = {
+      std::make_shared<GeometryNode>("mercury", planet_object),
+      std::make_shared<GeometryNode>("venus", planet_object),
+      std::make_shared<GeometryNode>("earth", planet_object),
+      std::make_shared<GeometryNode>("mars", planet_object),
+      std::make_shared<GeometryNode>("jupiter", planet_object),
+      std::make_shared<GeometryNode>("saturn", planet_object),
+      std::make_shared<GeometryNode>("uranus", planet_object),
+      std::make_shared<GeometryNode>("neptune", planet_object),
+  };
+// Add the child GeometryNodes to the sun GeometryNode
+  m_scene_root->addChild(sun);
+  for (std::size_t i = 0; i != planets.size(); ++i) {
+    auto planet = planets[i];
+    planet->setParent(sun);
+    planet->setWorldTransform(glm::translate(glm::mat4(1), glm::vec3(i, 0, 0)));
+  }
 }
 
 ///////////////////////////// callback functions for window events ////////////

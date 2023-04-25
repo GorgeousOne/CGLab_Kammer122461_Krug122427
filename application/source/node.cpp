@@ -17,6 +17,7 @@ std::shared_ptr<Node> Node::getParent() {
 void Node::setParent(std::shared_ptr<Node> node) {
   // set the parent of this node
   m_parent = node;
+  m_path = m_parent->getPath() + m_parent->getName();
   // update global transform based on new parent and local transform
   m_globalTransform = m_parent->getWorldTransform() * m_localTransform;
 }
@@ -106,4 +107,8 @@ std::shared_ptr<Node> Node::removeChild(const std::string &name) {
   return nullptr;
 }
 
-
+void Node::render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform) {
+  for (auto& pair : m_children) {
+    pair.second->render(m_shaders, view_transform);
+  }
+}

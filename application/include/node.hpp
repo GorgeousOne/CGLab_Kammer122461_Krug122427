@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include "structs.hpp"
 
 class Node {
 public:
@@ -36,6 +37,7 @@ public:
   void addChild(std::shared_ptr<Node>);
   // remove a child node by name
   std::shared_ptr<Node> removeChild(std::string const& name);
+  virtual void render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform);
 
 private:
   // parent node

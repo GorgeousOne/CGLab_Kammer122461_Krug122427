@@ -58,7 +58,7 @@ class Application {
 #include "window_handler.hpp"
 
 template<typename T>
-void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_minor) {  
+void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_minor) {
 
     GLFWwindow* window = window_handler::initialize(initial_resolution, ver_major, ver_minor);
     
@@ -73,8 +73,10 @@ void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_m
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    
-    // rendering loop
+    // enable multi sampling
+    glEnable(GL_MULTISAMPLE);
+
+  // rendering loop
     while (!glfwWindowShouldClose(window)) {
       // query input
       glfwPollEvents();

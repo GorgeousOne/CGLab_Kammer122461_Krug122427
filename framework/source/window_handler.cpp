@@ -68,6 +68,9 @@ GLFWwindow* initialize(glm::uvec2 const& resolution, unsigned ver_major, unsigne
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, ver_minor);
   // enable deug support
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+  // enable multi sampling
+  glfwWindowHint(GLFW_SAMPLES, 8);
+
 
   //MacOS requires forward compat core profile
   #ifdef __APPLE__

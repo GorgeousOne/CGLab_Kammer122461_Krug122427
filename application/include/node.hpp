@@ -30,7 +30,7 @@ public:
   // set the local transform matrix of the node
   void setLocalTransform(glm::mat4 const& newTransform);
   // get the world transform matrix of the node
-  glm::mat4 const& getWorldTransform();
+  glm::mat4 getWorldTransform();
   // set the world transform matrix of the node
   void setWorldTransform(glm::mat4 const& newTransform);
   // add a child node

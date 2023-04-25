@@ -27,7 +27,7 @@ using namespace gl;
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
-      m_view_transform{glm::translate(glm::fmat4{}, glm::fvec3{0.0f, 0.0f, 4.0f})},
+      m_view_transform{glm::translate(glm::fmat4{}, glm::fvec3{0.0f, 0.0f, 20.0f})},
       m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)} {
   initializeGeometry();
   initializeShaderPrograms();

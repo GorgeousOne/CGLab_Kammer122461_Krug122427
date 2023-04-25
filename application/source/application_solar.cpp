@@ -28,8 +28,13 @@ using namespace gl;
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
-      m_view_transform{glm::translate(glm::fmat4{}, glm::fvec3{10.0f, 0.0f, 25.0f})},
-      m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)} {
+      m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)},
+      m_cam_pos(glm::fvec3(10, 0, 25)),
+      m_cam_yaw(0),
+      m_cam_pitch(0),
+
+      m_keys_down{},
+      m_last_frame{0} {
   initializeGeometry();
   initializeShaderPrograms();
   initializeSceneGraph();
@@ -41,21 +46,34 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteVertexArrays(1, &planet_object.vertex_AO);
 }
 
-void ApplicationSolar::render() const {
-  m_scene_root->render(m_shaders, m_view_transform);
+void ApplicationSolar::render() {
+  double time = glfwGetTime();
+
+  glm::fmat4 view_transform = createViewTransform();
+  moveView(time - m_last_frame);
+  uploadView(view_transform);
+
+  m_scene_root->render(m_shaders, view_transform);
+  m_last_frame = time;
 }
 
-void ApplicationSolar::uploadView() {
+glm::fmat4 ApplicationSolar::createViewTransform() {
+  glm::fmat4 view_transform = glm::fmat4(1);
+  view_transform = glm::translate(view_transform, m_cam_pos);
+  view_transform = glm::rotate(view_transform, m_cam_yaw, glm::fvec3(0, 1, 0));
+  view_transform = glm::rotate(view_transform, m_cam_pitch, glm::fvec3(1, 0, 0));
+  return view_transform;
+}
+
+void ApplicationSolar::uploadView(glm::fmat4 const& view_transform) {
   // vertices are transformed in camera space, so camera transform must be inverted
-  glm::fmat4 view_matrix = glm::inverse(m_view_transform);
   // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
+  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
 }
 
 void ApplicationSolar::uploadProjection() {
   // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"),
-                     1, GL_FALSE, glm::value_ptr(m_view_projection));
+  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_view_projection));
 }
 
 // update uniform locations
@@ -63,7 +81,7 @@ void ApplicationSolar::uploadUniforms() {
   // bind shader to which to upload unforms
   glUseProgram(m_shaders.at("planet").handle);
   // upload uniform values to new locations
-  uploadView();
+  uploadView(createViewTransform());
   uploadProjection();
 }
 
@@ -156,7 +174,6 @@ void ApplicationSolar::initializeSceneGraph() {
     m_scene_root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
   }
-
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object);
 
@@ -170,18 +187,51 @@ void ApplicationSolar::initializeSceneGraph() {
 ///////////////////////////// callback functions for window events ////////////
 // handle key input
 void ApplicationSolar::keyCallback(int key, int action, int mods) {
-  if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-    m_view_transform = glm::translate(m_view_transform, glm::fvec3{0.0f, 0.0f, -0.1f});
-    uploadView();
-  } else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-    m_view_transform = glm::translate(m_view_transform, glm::fvec3{0.0f, 0.0f, 0.1f});
-    uploadView();
+  if (action == GLFW_PRESS) {
+    m_keys_down.emplace(key);
+  } else if (action == GLFW_RELEASE) {
+    m_keys_down.erase(key);
   }
+}
+
+void ApplicationSolar::moveView(double dTime) {
+  glm::fvec4 movement = glm::fvec4(0);
+  float speed = 5;
+  if (isKeyDown(GLFW_KEY_W)) {
+    movement[2] -= speed;
+  }
+  if (isKeyDown(GLFW_KEY_S)) {
+    movement[2] += speed;
+  }
+  if (isKeyDown(GLFW_KEY_A)) {
+    movement[0] -= speed;
+  }
+  if (isKeyDown(GLFW_KEY_D)) {
+    movement[0] += speed ;
+  }
+  if (isKeyDown(GLFW_KEY_LEFT_SHIFT)) {
+    m_cam_pos[1] -= speed * dTime;
+  }
+  if (isKeyDown(GLFW_KEY_SPACE)) {
+    m_cam_pos[1] += speed * dTime;
+  }
+  glm::fmat4 rotation = glm::fmat4(1);
+  rotation = glm::rotate(rotation, m_cam_yaw, glm::vec3(0, 1, 0));
+  movement *= dTime;
+  m_cam_pos += glm::vec3(rotation * movement);
+}
+
+bool ApplicationSolar::isKeyDown(int key) {
+  return m_keys_down.find(key) != m_keys_down.end();
 }
 
 //handle delta mouse movement input
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
   // mouse handling
+  float sensitivity = .25f;
+  m_cam_yaw -= glm::radians(pos_x) * sensitivity;
+  m_cam_pitch -= glm::radians(pos_y) * sensitivity;
+  m_cam_pitch = glm::clamp(m_cam_pitch, -.5f * glm::pi<float>(), .5f * glm::pi<float>());
 }
 
 //handle resizing

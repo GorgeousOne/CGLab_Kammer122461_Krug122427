@@ -119,7 +119,7 @@ void ApplicationSolar::initializeGeometry() {
 
    // generate generic buffer
   glGenBuffers(1, &planet_object.element_BO);
-  // bind this as an vertex array buffer containing all attributes
+  // bind this as a vertex array buffer containing all attributes
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planet_object.element_BO);
   // configure currently bound array buffer
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, model::INDEX.size * planet_model.indices.size(), planet_model.indices.data(), GL_STATIC_DRAW);

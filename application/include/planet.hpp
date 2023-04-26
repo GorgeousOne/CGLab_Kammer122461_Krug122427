@@ -4,9 +4,8 @@
 #include <string>
 
 struct Planet {
-  std::string name;
   float diameter;
-  float solarRadius;
+  float orbitRadius;
   float orbitalPeriod;
 };
 #endif //OPENGL_FRAMEWORK_PLANET_HPP

@@ -26,10 +26,8 @@ public:
     return m_root;
   }
 
-  std::string printGraph() {
-    m_root->iterate([] (Node& node) -> void {
-      std::cout << std::string(2 * node.getDepth(), ' ') << node.getName() << std::endl;
-    });
+  void printGraph(std::ostream& os) {
+    return m_root->printGraph(os);
   }
 
 private:

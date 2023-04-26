@@ -24,7 +24,6 @@ using namespace gl;
 #include <string>
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
-#include "planet.hpp"
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
@@ -32,12 +31,13 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
       m_cam_pos(glm::fvec3(10, 0, 25)),
       m_cam_yaw(0),
       m_cam_pitch(0),
-
       m_keys_down{},
+      m_planetData{},
       m_last_frame{0} {
   initializeGeometry();
   initializeShaderPrograms();
   initializeSceneGraph();
+  SceneGraph::get().printGraph(std::cout);
 }
 
 ApplicationSolar::~ApplicationSolar() {
@@ -50,11 +50,33 @@ void ApplicationSolar::render() {
   double time = glfwGetTime();
 
   glm::fmat4 view_transform = createViewTransform();
-  moveView(time - m_last_frame);
+
+  double dTime = time - m_last_frame;
+  rotatePlanets(dTime);
+  moveView(dTime);
   uploadView(view_transform);
 
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
   m_last_frame = time;
+}
+
+void ApplicationSolar::rotatePlanets(double dTime) {
+  SceneGraph::get().getRoot()->iterate([this, &dTime] (std::shared_ptr<Node> node) -> void {
+    std::string nodeName = node->getName();
+
+//    if (nodeName.find("sun-geom")) {
+//      node->setLocalTransform(glm::rotate(node->getLocalTransform(), (float) dTime * 2.5f, glm::fvec3(0, 1, 0)));
+//    }
+    if (!nodeName.find("hold")) {
+      return;
+    }
+    std::string planetName = nodeName.substr(0, nodeName.find('-'));
+    auto iter = m_planetData.find(planetName);
+
+    if (iter != m_planetData.end()) {
+//      node->setLocalTransform(glm::rotate(node->getLocalTransform(), (float) dTime * 0.1f, glm::fvec3(0, 1, 0)));
+    }
+  });
 }
 
 glm::fmat4 ApplicationSolar::createViewTransform() {
@@ -141,8 +163,8 @@ void ApplicationSolar::initializeSceneGraph() {
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
 
-  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun");
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun", planet_object);
+  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-hold");
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object);
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
   root->addChild(sunLight);
@@ -152,23 +174,22 @@ void ApplicationSolar::initializeSceneGraph() {
   std::shared_ptr<Node> camera = std::make_shared<CameraNode>("camera", true, true, glm::mat4());
   // Create child GeometryNodes for each plan, planet_object
 
-  std::vector<Planet> planetData {
-      {"mercury", .2f, 6, 1},
-      {"venus", .3f, 7, 2},
-      {"earth", .5, 9, 3},
-      {"mars", .4f, 11, 4},
-      {"jupiter", 2, 14.5f, 5},
-      {"saturn", 1.8f, 19, 6},
-      {"uranus", 1, 22, 7},
-      {"neptune", .9f, 24, 8}
-  };
+  m_planetData.emplace("mercury", Planet{.2f, 6, 1});
+  m_planetData.emplace("venus", Planet{.3f, 7, 2});
+  m_planetData.emplace("earth", Planet{.5, 9, 3});
+  m_planetData.emplace("mars", Planet{.4f, 11, 4});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 5});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 6});
+  m_planetData.emplace("uranus", Planet{1, 22, 7});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 8});
 
   // Add the child GeometryNodes to the sun GeometryNode
-  for (std::size_t i = 0; i != planetData.size(); ++i) {
-    Planet planet = planetData[i];
-    std::shared_ptr<Node> planetHolder = std::make_shared<Node>(planet.name + "-hold");
-    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(planet.name + "-geom", planet_object);
-    planetHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(planet.solarRadius, 0, 0)));
+  for (auto const& pair : m_planetData) {
+    std::string name = pair.first;
+    Planet planet = pair.second;
+    std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
+    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object);
+    planetHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(planet.orbitRadius, 0, 0)));
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
 
     root->addChild(planetHolder);
@@ -182,7 +203,7 @@ void ApplicationSolar::initializeSceneGraph() {
 
   root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
-  SceneGraph::get().printGraph();
+  m_planetData.emplace("moon", Planet{.1f, 1 , .2f});
 }
 
 ///////////////////////////// callback functions for window events ////////////

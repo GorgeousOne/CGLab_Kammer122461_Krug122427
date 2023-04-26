@@ -118,10 +118,19 @@ void Node::render(std::map<std::string, shader_program> m_shaders, glm::mat4 con
   }
 }
 
-void Node::iterate(std::function<void(Node&)> func) {
-  func(*this);
-
+void Node::iterate(std::function<void(std::shared_ptr<Node> node)> func) {
   for (auto pair : m_children) {
+    func(pair.second);
     pair.second->iterate(func);
+  }
+}
+
+void Node::printGraph(std::ostream& os) {
+  for (int i = 0; i < m_depth; ++i) {
+    os << "  ";
+  }
+  os << m_name << std::endl;
+  for (auto& pair : m_children) {
+    pair.second->printGraph(os);
   }
 }

@@ -8,6 +8,7 @@
 #include "model.hpp"
 #include "structs.hpp"
 #include "node.hpp"
+#include "scene_graph.hpp"
 
 // gpu representation of model
 class ApplicationSolar : public Application {
@@ -44,7 +45,6 @@ protected:
 
   // cpu representation of model
   model_object planet_object;
-  std::shared_ptr<Node> m_scene_root;
 
   // camera projection matrix
   glm::fmat4 m_view_projection;

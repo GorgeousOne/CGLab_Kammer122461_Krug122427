@@ -98,6 +98,7 @@ void Node::setWorldTransform(glm::mat4 const& newTransform) {
 void Node::addChild(std::shared_ptr<Node> child) {
   m_children.emplace(child->getName(), child);
   child->m_globalTransform = getWorldTransform();
+  child->m_depth = m_depth + 1;
 }
 
 std::shared_ptr<Node> Node::removeChild(const std::string &name) {
@@ -114,5 +115,13 @@ std::shared_ptr<Node> Node::removeChild(const std::string &name) {
 void Node::render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform) {
   for (auto& pair : m_children) {
     pair.second->render(m_shaders, view_transform);
+  }
+}
+
+void Node::iterate(std::function<void(Node&)> func) {
+  func(*this);
+
+  for (auto pair : m_children) {
+    pair.second->iterate(func);
   }
 }

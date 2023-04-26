@@ -53,7 +53,7 @@ void ApplicationSolar::render() {
   moveView(time - m_last_frame);
   uploadView(view_transform);
 
-  m_scene_root->render(m_shaders, view_transform);
+  SceneGraph::get().getRoot()->render(m_shaders, view_transform);
   m_last_frame = time;
 }
 
@@ -139,13 +139,13 @@ void ApplicationSolar::initializeGeometry() {
 
 void ApplicationSolar::initializeSceneGraph() {
   // Create the sun GeometryNode
-  m_scene_root = std::make_shared<Node>("root");
+  std::shared_ptr<Node> root = SceneGraph::get().getRoot();
 
   std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun");
   std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun", planet_object);
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
-  m_scene_root->addChild(sunLight);
+  root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
 
   // create camera
@@ -171,7 +171,7 @@ void ApplicationSolar::initializeSceneGraph() {
     planetHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(planet.solarRadius, 0, 0)));
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
 
-    m_scene_root->addChild(planetHolder);
+    root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
   }
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
@@ -180,8 +180,9 @@ void ApplicationSolar::initializeSceneGraph() {
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
 
-  m_scene_root->getChild("earth-hold")->addChild(moonHolder);
+  root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
+  SceneGraph::get().printGraph();
 }
 
 ///////////////////////////// callback functions for window events ////////////

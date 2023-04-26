@@ -60,16 +60,11 @@ glm::mat4 Node::getLocalTransform() {
 }
 
 void Node::setLocalTransform(const glm::mat4 &newTransform) {
-  // calculate relative transform between new and old local transform
-//  glm::mat4 relTransform = newTransform * glm::inverse(m_localTransform);
-  // set the new local transform
   m_localTransform = newTransform;
-  // update global transform obased on relative transform
-//  m_globalTransform = relTransform * m_globalTransform;
 
   for (auto& pair: m_children) {
     // update global transform of children based on relative transform
-    pair.second->m_globalTransform *= getWorldTransform();
+    pair.second->m_globalTransform = getWorldTransform();
   }
 }
 
@@ -79,19 +74,12 @@ glm::mat4 Node::getWorldTransform() {
 }
 
 void Node::setWorldTransform(glm::mat4 const& newTransform) {
-  // calculate relative transform between new and old global transform
-  glm::mat4 relTransform = newTransform * glm::inverse(getWorldTransform());
   // set the new global transform
   m_globalTransform = newTransform;
-  //m_localTransform = relTransform * m_localTransform
 
-//  if (nullptr != m_parent) {
-    // update local transform based on new global transform and parent's world transform
-//    m_localTransform = newTransform * glm::inverse(m_parent->getWorldTransform());
-//  }
   for (auto &pair: m_children) {
     // update global transform of children based on relative transform
-    pair.second->m_globalTransform = newTransform;
+    pair.second->m_globalTransform = getWorldTransform();
   }
 }
 

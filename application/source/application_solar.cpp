@@ -6,6 +6,8 @@
 #include "model_loader.hpp"
 
 #include <glbinding/gl/gl.h>
+#include <glm/gtc/random.hpp>
+
 // use gl definitions from glbinding 
 using namespace gl;
 
@@ -28,9 +30,9 @@ using namespace gl;
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
       m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)},
-      m_cam_pos(glm::fvec3(10, 0, 25)),
+      m_cam_pos(glm::fvec3(0, 30, 0)),
       m_cam_yaw(0),
-      m_cam_pitch(0),
+      m_cam_pitch(-.5f * glm::pi<float>()),
       m_keys_down{},
       m_planetData{},
       m_last_frame{0} {
@@ -64,9 +66,6 @@ void ApplicationSolar::rotatePlanets(double dTime) {
   SceneGraph::get().getRoot()->iterate([this, &dTime] (std::shared_ptr<Node> node) -> void {
     std::string nodeName = node->getName();
 
-//    if (nodeName.find("sun-geom")) {
-//      node->setLocalTransform(glm::rotate(node->getLocalTransform(), (float) dTime * 2.5f, glm::fvec3(0, 1, 0)));
-//    }
     if (!nodeName.find("hold")) {
       return;
     }
@@ -74,7 +73,9 @@ void ApplicationSolar::rotatePlanets(double dTime) {
     auto iter = m_planetData.find(planetName);
 
     if (iter != m_planetData.end()) {
-//      node->setLocalTransform(glm::rotate(node->getLocalTransform(), (float) dTime * 0.1f, glm::fvec3(0, 1, 0)));
+      float angle = (float) dTime / iter->second.orbitalPeriod  * 2 * glm::pi<float>();
+      glm::fmat4 rotation = glm::rotate(glm::fmat4(1), angle, glm::fvec3(0, 1, 0));
+      node->setLocalTransform(rotation * node->getLocalTransform());
     }
   });
 }
@@ -174,14 +175,14 @@ void ApplicationSolar::initializeSceneGraph() {
   std::shared_ptr<Node> camera = std::make_shared<CameraNode>("camera", true, true, glm::mat4());
   // Create child GeometryNodes for each plan, planet_object
 
-  m_planetData.emplace("mercury", Planet{.2f, 6, 1});
-  m_planetData.emplace("venus", Planet{.3f, 7, 2});
-  m_planetData.emplace("earth", Planet{.5, 9, 3});
-  m_planetData.emplace("mars", Planet{.4f, 11, 4});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 5});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 6});
-  m_planetData.emplace("uranus", Planet{1, 22, 7});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 8});
+  m_planetData.emplace("mercury", Planet{.2f, 6, 2});
+  m_planetData.emplace("venus", Planet{.3f, 7, 3});
+  m_planetData.emplace("earth", Planet{.5, 9, 8});
+  m_planetData.emplace("mars", Planet{.4f, 11, 12});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30});
+  m_planetData.emplace("uranus", Planet{1, 22, 45});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60});
 
   // Add the child GeometryNodes to the sun GeometryNode
   for (auto const& pair : m_planetData) {
@@ -189,7 +190,13 @@ void ApplicationSolar::initializeSceneGraph() {
     Planet planet = pair.second;
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
     std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object);
-    planetHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(planet.orbitRadius, 0, 0)));
+
+    glm::fmat4 transform = glm::fmat4(1);
+    transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
+//    transform = glm::rotate(transform, glm::pi<float>(), glm::fvec3(0, 1, 0));
+    transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
+
+    planetHolder->setLocalTransform(transform);
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
 
     root->addChild(planetHolder);
@@ -201,9 +208,10 @@ void ApplicationSolar::initializeSceneGraph() {
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
 
+
   root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
-  m_planetData.emplace("moon", Planet{.1f, 1 , .2f});
+  m_planetData.emplace("moon", Planet{.1f, 1 , .5f});
 }
 
 ///////////////////////////// callback functions for window events ////////////

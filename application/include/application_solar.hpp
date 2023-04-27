@@ -41,24 +41,16 @@ protected:
   void uploadView(glm::fmat4 const& view_transform);
   void rotatePlanets(double dTime);
   // move view based on key presses
-  glm::fmat4 createViewTransform();
   void moveView(double dTime);
-
+  //
   bool isKeyDown(int key);
 
   // cpu representation of model
   model_object planet_object;
-  // camera projection matrix
-  glm::fmat4 m_view_projection;
-  //
-  glm::fvec3 m_cam_pos;
-  float m_cam_yaw;
-
-  float m_cam_pitch;
   //pressed keys
   std::set<int> m_keys_down;
-
   std::map<std::string, Planet> m_planetData;
+  std::shared_ptr<CameraNode> m_cam;
   //last time render was called
   double m_last_frame;
 };

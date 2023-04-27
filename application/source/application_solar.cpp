@@ -29,12 +29,9 @@ using namespace gl;
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
-      m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)},
-      m_cam_pos(glm::fvec3(0, 30, 0)),
-      m_cam_yaw(0),
-      m_cam_pitch(-.5f * glm::pi<float>()),
       m_keys_down{},
       m_planetData{},
+      m_cam{nullptr},
       m_last_frame{0} {
   initializeGeometry();
   initializeShaderPrograms();
@@ -51,7 +48,7 @@ ApplicationSolar::~ApplicationSolar() {
 void ApplicationSolar::render() {
   double time = glfwGetTime();
 
-  glm::fmat4 view_transform = createViewTransform();
+  glm::fmat4 view_transform = m_cam->getViewTransform();
 
   double dTime = time - m_last_frame;
   rotatePlanets(dTime);
@@ -80,14 +77,6 @@ void ApplicationSolar::rotatePlanets(double dTime) {
   });
 }
 
-glm::fmat4 ApplicationSolar::createViewTransform() {
-  glm::fmat4 view_transform = glm::fmat4(1);
-  view_transform = glm::translate(view_transform, m_cam_pos);
-  view_transform = glm::rotate(view_transform, m_cam_yaw, glm::fvec3(0, 1, 0));
-  view_transform = glm::rotate(view_transform, m_cam_pitch, glm::fvec3(1, 0, 0));
-  return view_transform;
-}
-
 void ApplicationSolar::uploadView(glm::fmat4 const& view_transform) {
   // vertices are transformed in camera space, so camera transform must be inverted
   // upload matrix to gpu
@@ -96,7 +85,7 @@ void ApplicationSolar::uploadView(glm::fmat4 const& view_transform) {
 
 void ApplicationSolar::uploadProjection() {
   // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_view_projection));
+  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_cam->getProjectionMatrix()));
 }
 
 // update uniform locations
@@ -104,7 +93,7 @@ void ApplicationSolar::uploadUniforms() {
   // bind shader to which to upload unforms
   glUseProgram(m_shaders.at("planet").handle);
   // upload uniform values to new locations
-  uploadView(createViewTransform());
+  uploadView(m_cam->getViewTransform());
   uploadProjection();
 }
 
@@ -161,19 +150,19 @@ void ApplicationSolar::initializeGeometry() {
 
 
 void ApplicationSolar::initializeSceneGraph() {
+  // create camera
+  m_cam = std::make_shared<CameraNode>("camera", utils::calculate_projection_matrix(initial_aspect_ratio));
+  m_cam->setPos(glm::fvec3(0, 30, 0));
+  m_cam->setPitch(-.5f * glm::pi<float>());
+
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
-
   std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-hold");
   std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object);
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
-
-  // create camera
-  std::shared_ptr<Node> camera = std::make_shared<CameraNode>("camera", true, true, glm::mat4());
-  // Create child GeometryNodes for each plan, planet_object
 
   m_planetData.emplace("mercury", Planet{.2f, 6, 2});
   m_planetData.emplace("venus", Planet{.3f, 7, 3});
@@ -193,7 +182,6 @@ void ApplicationSolar::initializeSceneGraph() {
 
     glm::fmat4 transform = glm::fmat4(1);
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
-//    transform = glm::rotate(transform, glm::pi<float>(), glm::fvec3(0, 1, 0));
     transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
 
     planetHolder->setLocalTransform(transform);
@@ -240,15 +228,15 @@ void ApplicationSolar::moveView(double dTime) {
     movement[0] += speed ;
   }
   if (isKeyDown(GLFW_KEY_LEFT_SHIFT)) {
-    m_cam_pos[1] -= speed * dTime;
+    movement[1] -= speed;
   }
   if (isKeyDown(GLFW_KEY_SPACE)) {
-    m_cam_pos[1] += speed * dTime;
+    movement[1] += speed;
   }
   glm::fmat4 rotation = glm::fmat4(1);
-  rotation = glm::rotate(rotation, m_cam_yaw, glm::vec3(0, 1, 0));
+  rotation = glm::rotate(rotation, m_cam->getYaw(), glm::vec3(0, 1, 0));
   movement *= dTime;
-  m_cam_pos += glm::vec3(rotation * movement);
+  m_cam->translate(glm::vec3(rotation * movement));
 }
 
 bool ApplicationSolar::isKeyDown(int key) {
@@ -259,19 +247,17 @@ bool ApplicationSolar::isKeyDown(int key) {
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
   // mouse handling
   float sensitivity = .25f;
-  m_cam_yaw -= glm::radians(pos_x) * sensitivity;
-  m_cam_pitch -= glm::radians(pos_y) * sensitivity;
-  m_cam_pitch = glm::clamp(m_cam_pitch, -.5f * glm::pi<float>(), .5f * glm::pi<float>());
+  m_cam->rotate(glm::radians(-pos_x) * sensitivity, glm::radians(-pos_y) * sensitivity);
 }
 
 //handle resizing
 void ApplicationSolar::resizeCallback(unsigned width, unsigned height) {
+  std::cout << "resize\n";
   // recalculate projection matrix for new aspect ration
-  m_view_projection = utils::calculate_projection_matrix(float(width) / float(height));
+  m_cam->setProjectionMatrix(utils::calculate_projection_matrix(float(width) / float(height)));
   // upload new projection matrix
   uploadProjection();
 }
-
 
 // exe entry point
 int main(int argc, char *argv[]) {

@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 
-model_object const &GeometryNode::getGeometry() {
+model_object const& GeometryNode::getGeometry() {
   return m_geometry;
 }
 

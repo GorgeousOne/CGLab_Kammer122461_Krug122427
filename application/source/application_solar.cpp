@@ -44,6 +44,9 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteBuffers(1, &planet_object.vertex_BO);
   glDeleteBuffers(1, &planet_object.element_BO);
   glDeleteVertexArrays(1, &planet_object.vertex_AO);
+  glDeleteBuffers(1, &m_stars_object.vertex_BO);
+  glDeleteBuffers(1, &m_stars_object.element_BO);
+  glDeleteVertexArrays(1, &m_stars_object.vertex_AO);
 }
 
 void ApplicationSolar::render() {
@@ -155,7 +158,7 @@ void ApplicationSolar::initializeGeometry() {
   //---------------------------- stars
 
   int starCount = 1000;
-  int starRange = 50;
+  int starRange = 60;
 
   std::vector<GLfloat> star_verts_and_colors{};
   std::vector<GLfloat>star_indices{};
@@ -165,8 +168,10 @@ void ApplicationSolar::initializeGeometry() {
     star_verts_and_colors.emplace_back(glm::linearRand(-starRange, starRange));
     star_verts_and_colors.emplace_back(glm::linearRand(-starRange, starRange));
 
-    star_verts_and_colors.emplace_back(1);
-    star_verts_and_colors.emplace_back(1);
+    float kelvin = glm::linearRand(0.f, 1.f);
+    kelvin *= .5f * kelvin;
+    star_verts_and_colors.emplace_back(1 - kelvin);
+    star_verts_and_colors.emplace_back(1 - kelvin);
     star_verts_and_colors.emplace_back(1);
 
     star_indices.emplace_back(i);
@@ -178,17 +183,13 @@ void ApplicationSolar::initializeGeometry() {
   glBindBuffer(GL_ARRAY_BUFFER, m_stars_object.vertex_BO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * star_verts_and_colors.size(), star_verts_and_colors.data(), GL_STATIC_DRAW);
 
-//  glGenBuffers(1, &m_stars_object.element_BO);
-//  glBindBuffer(GL_ARRAY_BUFFER, m_stars_object.element_BO);
-//  glBufferData(GL_ARRAY_BUFFER, model::INDEX.size * star_indices.size(), star_indices.data(), GL_STATIC_DRAW);
-
-// activate first attribute on gpu
+  // activate first attribute on gpu
   glEnableVertexAttribArray(0);
-  // position is the first attribute with 3 floats (XYZ)
-  glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 6, 0);
+  // position is the first attribute with 3 floats (XYZ) and 0 stride
+  glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 6, NULL);
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
-  // color is the second attribute with 3 floats (RGB)
+  // color is the second attribute with 3 floats (RGB) and 3 stride
   glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(float) * 6, (void*)(sizeof(float) * 3));
 
   m_stars_object.draw_mode = GL_POINTS;

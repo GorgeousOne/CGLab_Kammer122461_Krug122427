@@ -29,6 +29,7 @@ using namespace gl;
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path}, planet_object{},
+      m_stars_object{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
@@ -55,7 +56,7 @@ void ApplicationSolar::render() {
   moveView(dTime);
   uploadView(view_transform);
 
-  SceneGraph::get().getRoot()->render(m_shaders, view_transform);
+  SceneGraph::get().getRoot()->render(m_shaders, view_transform, m_cam->getProjectionMatrix());
   m_last_frame = time;
 }
 
@@ -101,13 +102,17 @@ void ApplicationSolar::uploadUniforms() {
 // load shader sources
 void ApplicationSolar::initializeShaderPrograms() {
   // store shader program objects in container
-  m_shaders.emplace("planet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
-                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+  m_shaders.emplace("planet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"}, {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
+
+  m_shaders.emplace("stars", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"}, {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
+  m_shaders.at("stars").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("stars").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("stars").u_locs["ProjectionMatrix"] = -1;
 }
 
 // load models
@@ -146,8 +151,49 @@ void ApplicationSolar::initializeGeometry() {
   planet_object.draw_mode = GL_TRIANGLES;
   // transfer number of indices to model object 
   planet_object.num_elements = GLsizei(planet_model.indices.size());
-}
 
+  //---------------------------- stars
+
+  int starCount = 1000;
+  int starRange = 50;
+
+  std::vector<GLfloat> star_verts_and_colors{};
+  std::vector<GLfloat>star_indices{};
+
+  for (int i = 0; i < starCount; ++i) {
+    star_verts_and_colors.emplace_back(glm::linearRand(-starRange, starRange));
+    star_verts_and_colors.emplace_back(glm::linearRand(-starRange, starRange));
+    star_verts_and_colors.emplace_back(glm::linearRand(-starRange, starRange));
+
+    star_verts_and_colors.emplace_back(1);
+    star_verts_and_colors.emplace_back(1);
+    star_verts_and_colors.emplace_back(1);
+
+    star_indices.emplace_back(i);
+  }
+  glGenVertexArrays(1, &m_stars_object.vertex_AO);
+  glBindVertexArray(m_stars_object.vertex_AO);
+
+  glGenBuffers(1, &m_stars_object.vertex_BO);
+  glBindBuffer(GL_ARRAY_BUFFER, m_stars_object.vertex_BO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * star_verts_and_colors.size(), star_verts_and_colors.data(), GL_STATIC_DRAW);
+
+//  glGenBuffers(1, &m_stars_object.element_BO);
+//  glBindBuffer(GL_ARRAY_BUFFER, m_stars_object.element_BO);
+//  glBufferData(GL_ARRAY_BUFFER, model::INDEX.size * star_indices.size(), star_indices.data(), GL_STATIC_DRAW);
+
+// activate first attribute on gpu
+  glEnableVertexAttribArray(0);
+  // position is the first attribute with 3 floats (XYZ)
+  glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 6, 0);
+  // activate second attribute on gpu
+  glEnableVertexAttribArray(1);
+  // color is the second attribute with 3 floats (RGB)
+  glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(float) * 6, (void*)(sizeof(float) * 3));
+
+  m_stars_object.draw_mode = GL_POINTS;
+  m_stars_object.num_elements = GLsizei(star_indices.size());
+}
 
 void ApplicationSolar::initializeSceneGraph() {
   // create camera
@@ -157,8 +203,12 @@ void ApplicationSolar::initializeSceneGraph() {
 
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
+
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars-geom", m_stars_object, "stars");
+  root->addChild(stars);
+
   std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-hold");
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object);
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
   root->addChild(sunLight);
@@ -178,7 +228,7 @@ void ApplicationSolar::initializeSceneGraph() {
     std::string name = pair.first;
     Planet planet = pair.second;
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object);
+    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
@@ -191,7 +241,7 @@ void ApplicationSolar::initializeSceneGraph() {
     planetHolder->addChild(planetGeometry);
   }
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object);
+  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
 
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));

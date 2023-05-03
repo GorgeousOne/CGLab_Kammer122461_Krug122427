@@ -38,7 +38,7 @@ public:
   void addChild(std::shared_ptr<Node>);
   // remove a child node by name
   std::shared_ptr<Node> removeChild(std::string const& name);
-  virtual void render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform);
+  virtual void render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform, glm::mat4 const& projection);
   void iterate(std::function<void(std::shared_ptr<Node>)> func);
   void printGraph(std::ostream& os);
 

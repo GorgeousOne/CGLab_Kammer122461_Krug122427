@@ -10,8 +10,7 @@ Node::Node(std::string const& name) :
     m_globalTransform{glm::mat4()} {}
 
 std::shared_ptr<Node> Node::getParent() {
-  // return an empty shared pointer, indicating no parent
-  return std::shared_ptr<Node>();
+  return m_parent;
 }
 
 void Node::setParent(std::shared_ptr<Node> node) {
@@ -40,17 +39,17 @@ std::map<std::string, std::shared_ptr<Node>> const &Node::getChildrenList() {
 }
 
 std::string const &Node::getName() {
-  // return the name of the node
+  // return name of the node
   return m_name;
 }
 
 std::string const &Node::getPath() {
-  // return the path of the node
+  // return path of the node
   return m_path;
 }
 
 int Node::getDepth() {
-  // return the depth of the node
+  // return depth of the node
   return m_depth;
 }
 
@@ -79,18 +78,20 @@ void Node::setWorldTransform(glm::mat4 const& newTransform) {
   m_globalTransform = newTransform;
 
   for (auto &pair: m_children) {
-    // update global transform of children based on relative transform
+    // update global transform of children
     pair.second->m_globalTransform = getWorldTransform();
   }
 }
 
 void Node::addChild(std::shared_ptr<Node> child) {
+  //add node as child object that gets transformed with parent node together
   m_children.emplace(child->getName(), child);
   child->m_globalTransform = getWorldTransform();
   child->m_depth = m_depth + 1;
 }
 
 std::shared_ptr<Node> Node::removeChild(const std::string &name) {
+  //find and erase the child
   auto iter = m_children.find(name);
 
   if (iter != m_children.end()) {
@@ -102,12 +103,14 @@ std::shared_ptr<Node> Node::removeChild(const std::string &name) {
 }
 
 void Node::render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform) {
+  //render nothing by default and only call render on children
   for (auto& pair : m_children) {
     pair.second->render(m_shaders, view_transform);
   }
 }
 
 void Node::iterate(std::function<void(std::shared_ptr<Node> node)> func) {
+  //execute the passed function once with each child as parameter, then repeat down the node tree
   for (auto& pair : m_children) {
     func(pair.second);
     pair.second->iterate(func);

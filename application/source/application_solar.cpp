@@ -47,31 +47,37 @@ ApplicationSolar::~ApplicationSolar() {
 
 void ApplicationSolar::render() {
   double time = glfwGetTime();
-
-  glm::fmat4 view_transform = m_cam->getViewTransform();
-
+  //calculate delta time to last render for FPS independent planet speed
   double dTime = time - m_last_frame;
+
   rotatePlanets(dTime);
   moveView(dTime);
-  uploadView(view_transform);
 
+  glm::fmat4 view_transform = m_cam->getViewTransform();
+  uploadView(view_transform);
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
   m_last_frame = time;
 }
 
 void ApplicationSolar::rotatePlanets(double dTime) {
+  //run this lambda function for each node of the scene graph
   SceneGraph::get().getRoot()->iterate([this, &dTime] (std::shared_ptr<Node> node) -> void {
     std::string nodeName = node->getName();
 
     if (!nodeName.find("hold")) {
       return;
     }
+    //find out which planet this node is
     std::string planetName = nodeName.substr(0, nodeName.find('-'));
+    //try to find planet data for the planet (sun does not get rotated)
     auto iter = m_planetData.find(planetName);
 
     if (iter != m_planetData.end()) {
-      float angle = (float) dTime / iter->second.orbitalPeriod  * 2 * glm::pi<float>();
-      glm::fmat4 rotation = glm::rotate(glm::fmat4(1), angle, glm::fvec3(0, 1, 0));
+      //calculate how much planet orbited since last frame
+      float angle = (float) dTime / iter->second.orbitalPeriod * 360;
+      //create transformation matrix containing this rotation
+      glm::fmat4 rotation = glm::rotate(glm::fmat4(1), glm::radians(angle), glm::fvec3(0, 1, 0));
+      //apply rotation to local transform of planet
       node->setLocalTransform(rotation * node->getLocalTransform());
     }
   });
@@ -182,40 +188,37 @@ void ApplicationSolar::initializeSceneGraph() {
     std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object);
 
     glm::fmat4 transform = glm::fmat4(1);
+    //give each planet a random rotation for the start
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
+    //translate each planet from the sun away
     transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
     //update the local transform of the planet holder
     planetHolder->setLocalTransform(transform);
+    //scale the geometry node to the defined size of the planet
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
 
+    //add planet to scene graph
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
   }
+  //create moon separately
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object);
 
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
 
-
+  //add moon to scene graph rotating around earth
   root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
+  //add moon to planet data, so it gets rotated in render()
   m_planetData.emplace("moon", Planet{.1f, 1 , .5f});
-}
-
-///////////////////////////// callback functions for window events ////////////
-// handle key input
-void ApplicationSolar::keyCallback(int key, int action, int mods) {
-  if (action == GLFW_PRESS) {
-    m_keys_down.emplace(key);
-  } else if (action == GLFW_RELEASE) {
-    m_keys_down.erase(key);
-  }
 }
 
 void ApplicationSolar::moveView(double dTime) {
   glm::fvec4 movement = glm::fvec4(0);
   float speed = 5;
+  //update movement vector if movement keys are pressed
   if (isKeyDown(GLFW_KEY_W)) {
     movement[2] -= speed;
   }
@@ -234,19 +237,34 @@ void ApplicationSolar::moveView(double dTime) {
   if (isKeyDown(GLFW_KEY_SPACE)) {
     movement[1] += speed;
   }
+  //create rotation matrix to adapt movement to viewing direction
   glm::fmat4 rotation = glm::fmat4(1);
   rotation = glm::rotate(rotation, m_cam->getYaw(), glm::vec3(0, 1, 0));
+  //make movement FPS independent
   movement *= dTime;
+  //move camera by rotated movement vector
   m_cam->translate(glm::vec3(rotation * movement));
 }
 
+///////////////////////////// callback functions for window events ////////////
+// handle key input
+void ApplicationSolar::keyCallback(int key, int action, int mods) {
+  //store pressed keys in a set
+  if (action == GLFW_PRESS) {
+    m_keys_down.emplace(key);
+  } else if (action == GLFW_RELEASE) {
+    m_keys_down.erase(key);
+  }
+}
+
+//Returns true if a keyboard key is depressed right now
 bool ApplicationSolar::isKeyDown(int key) {
   return m_keys_down.find(key) != m_keys_down.end();
 }
 
 //handle delta mouse movement input
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
-  // mouse handling
+  //rotate camera by mouse movement
   float sensitivity = .25f;
   m_cam->rotate(glm::radians(-pos_x) * sensitivity, glm::radians(-pos_y) * sensitivity);
 }
@@ -254,9 +272,9 @@ void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
 //handle resizing
 void ApplicationSolar::resizeCallback(unsigned width, unsigned height) {
   std::cout << "resize\n";
-  // recalculate projection matrix for new aspect ration
+  //recalculate projection matrix for new aspect ratio
   m_cam->setProjectionMatrix(utils::calculate_projection_matrix(float(width) / float(height)));
-  // upload new projection matrix
+  //upload new projection matrix
   uploadProjection();
 }
 

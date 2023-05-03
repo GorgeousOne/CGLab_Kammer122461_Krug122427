@@ -69,7 +69,8 @@ void Node::setLocalTransform(const glm::mat4 &newTransform) {
 }
 
 glm::mat4 Node::getWorldTransform() {
-  // return the global transform of the node
+  /* return the world transform of the node as a combination of global transform (mostly influenced by parent node)
+    and local transform */
   return m_globalTransform * m_localTransform;
 }
 
@@ -113,7 +114,9 @@ void Node::iterate(std::function<void(std::shared_ptr<Node> node)> func) {
   }
 }
 
+// print the names of the objects in the scene graph
 void Node::printGraph(std::ostream& os) {
+  // print the name of the node with indentation based on depth
   for (int i = 0; i < m_depth; ++i) {
     os << "  ";
   }

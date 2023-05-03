@@ -164,6 +164,7 @@ void ApplicationSolar::initializeSceneGraph() {
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
 
+  // Create the planet data with name, diameter, orbit radius and orbital period in seconds
   m_planetData.emplace("mercury", Planet{.2f, 6, 2});
   m_planetData.emplace("venus", Planet{.3f, 7, 3});
   m_planetData.emplace("earth", Planet{.5, 9, 8});
@@ -183,7 +184,7 @@ void ApplicationSolar::initializeSceneGraph() {
     glm::fmat4 transform = glm::fmat4(1);
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
     transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
-
+    //update the local transform of the planet holder
     planetHolder->setLocalTransform(transform);
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
 

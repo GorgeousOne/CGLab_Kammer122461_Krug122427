@@ -197,19 +197,12 @@ void ApplicationSolar::initializeGeometry() {
   // activate first attribute on gpu
   glEnableVertexAttribArray(0);
   // first attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3, NULL);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
   // second attribute is 3 floats with no
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3, (GLvoid*)(3 * sizeof(GLfloat)));
-
-  // generate generic buffer
-  glGenBuffers(1, &stars_object.element_BO);
-  // bind this as a vertex array buffer containing all attributes
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planet_object.element_BO);
-  // configure currently bound array buffer
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * starCount, starIndices.data(), GL_STATIC_DRAW);
-
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid*)(3 * sizeof(GLfloat)));
+  
   // store type of primitive to draw
   stars_object.draw_mode = GL_POINTS;
   // transfer number of indices to model object

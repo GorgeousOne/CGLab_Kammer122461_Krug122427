@@ -63,23 +63,30 @@ void ApplicationSolar::rotatePlanets(double dTime) {
   //run this lambda function for each node of the scene graph
   SceneGraph::get().getRoot()->iterate([this, &dTime] (std::shared_ptr<Node> node) -> void {
     std::string nodeName = node->getName();
-
-    if (!nodeName.find("hold")) {
-      return;
-    }
     //find out which planet this node is
     std::string planetName = nodeName.substr(0, nodeName.find('-'));
     //try to find planet data for the planet (sun does not get rotated)
     auto iter = m_planetData.find(planetName);
 
-    if (iter != m_planetData.end()) {
-      //calculate how much planet orbited since last frame
-      float angle = (float) dTime / iter->second.orbitalPeriod * 360;
-      //create transformation matrix containing this rotation
-      glm::fmat4 rotation = glm::rotate(glm::fmat4(1), glm::radians(angle), glm::fvec3(0, 1, 0));
-      //apply rotation to local transform of planet
-      node->setLocalTransform(rotation * node->getLocalTransform());
+    if (iter == m_planetData.end()) {
+      return;
     }
+    Planet planet = iter->second;
+    float angle = 0;
+
+    if (nodeName.find("hold") != std::string::npos) {
+      //calculate how much planet orbited since last frame
+      angle = (float) dTime / planet.orbitPeriod * 360;
+    } else if (nodeName.find("geom") != std::string::npos){
+      //calculate how much planet rotated around own axis
+      angle = (float) dTime / planet.rotationPeriod * 360;
+    } else {
+      return;
+    }
+    //create transformation matrix containing this rotation
+    glm::fmat4 rotation = glm::rotate(glm::fmat4(1), glm::radians(angle), glm::fvec3(0, 1, 0));
+    //apply rotation to local transform of planet
+    node->setLocalTransform(rotation * node->getLocalTransform());
   });
 }
 
@@ -163,7 +170,7 @@ void ApplicationSolar::initializeSceneGraph() {
 
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
-  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-hold");
+  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
   std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object);
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
@@ -171,14 +178,14 @@ void ApplicationSolar::initializeSceneGraph() {
   sunLight->addChild(sunGeometry);
 
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
-  m_planetData.emplace("mercury", Planet{.2f, 6, 2});
-  m_planetData.emplace("venus", Planet{.3f, 7, 3});
-  m_planetData.emplace("earth", Planet{.5, 9, 8});
-  m_planetData.emplace("mars", Planet{.4f, 11, 12});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 30});
-  m_planetData.emplace("uranus", Planet{1, 22, 45});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 60});
+  m_planetData.emplace("mercury", Planet{.2f, 6, 2, 1});
+  m_planetData.emplace("venus", Planet{.3f, 7, 3, 1});
+  m_planetData.emplace("earth", Planet{.5, 9, 8, 1});
+  m_planetData.emplace("mars", Planet{.4f, 11, 12, 1});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, .1f});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
+  m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
 
   // Add the child GeometryNodes to the sun GeometryNode
   for (auto const& pair : m_planetData) {
@@ -212,12 +219,13 @@ void ApplicationSolar::initializeSceneGraph() {
   root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
   //add moon to planet data, so it gets rotated in render()
-  m_planetData.emplace("moon", Planet{.1f, 1 , .5f});
+  m_planetData.emplace("moon", Planet{.1f, 1 , .5f, .5f});
+  m_planetData.emplace("sun", Planet{5, 0 , 0, 1});
 }
 
 void ApplicationSolar::moveView(double dTime) {
   glm::fvec4 movement = glm::fvec4(0);
-  float speed = 5;
+  float speed = 10;
   //update movement vector if movement keys are pressed
   if (isKeyDown(GLFW_KEY_W)) {
     movement[2] -= speed;

@@ -10,6 +10,8 @@ struct Planet {
   //distance from sun (or respective planet) that is being orbited
   float orbitRadius;
   //duration for one orbit in seconds
-  float orbitalPeriod;
+  float orbitPeriod;
+  //duration of rotation around self in seconds
+  float rotationPeriod;
 };
 #endif //OPENGL_FRAMEWORK_PLANET_HPP

@@ -47,6 +47,7 @@ protected:
 
   // cpu representation of model
   model_object planet_object;
+  model_object stars_object;
   //pressed keys
   std::set<int> m_keys_down;
   std::map<std::string, Planet> m_planetData;

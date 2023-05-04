@@ -28,7 +28,9 @@ using namespace gl;
 #include "camera_node.hpp"
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
-    : Application{resource_path}, planet_object{},
+    : Application{resource_path},
+      planet_object{},
+      stars_object{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
@@ -159,8 +161,60 @@ void ApplicationSolar::initializeGeometry() {
   planet_object.draw_mode = GL_TRIANGLES;
   // transfer number of indices to model object 
   planet_object.num_elements = GLsizei(planet_model.indices.size());
-}
 
+  //////////////// Stars ////////////////
+
+  int starCount = 1000;
+  float starRange = 50;
+  std::vector<GLfloat> starData{};
+  std::vector<GLuint> starIndices{};
+
+  for (int i = 0; i < starCount; ++i) {
+    //star xyz position
+    starData.emplace_back(glm::linearRand(-starRange, starRange));
+    starData.emplace_back(glm::linearRand(-starRange, starRange));
+    starData.emplace_back(glm::linearRand(-starRange, starRange));
+    //star RGB color
+    starData.emplace_back(glm::linearRand(.5f, 1.f));
+    starData.emplace_back(glm::linearRand(.5f, 1.f));
+    starData.emplace_back(glm::linearRand(.5f, 1.f));
+
+    starIndices.emplace_back(i);
+  }
+
+  // generate vertex array object
+  glGenVertexArrays(1, &stars_object.vertex_AO);
+  // bind the array for attaching buffers
+  glBindVertexArray(stars_object.vertex_AO);
+
+  // generate generic buffer
+  glGenBuffers(1, &stars_object.vertex_BO);
+  // bind this as a vertex array buffer containing all attributes
+  glBindBuffer(GL_ARRAY_BUFFER, stars_object.vertex_BO);
+  // configure currently bound array buffer
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * starData.size(), starData.data(), GL_STATIC_DRAW);
+
+  // activate first attribute on gpu
+  glEnableVertexAttribArray(0);
+  // first attribute is 3 floats with no offset & stride
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3, NULL);
+  // activate second attribute on gpu
+  glEnableVertexAttribArray(1);
+  // second attribute is 3 floats with no
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3, (GLvoid*)(3 * sizeof(GLfloat)));
+
+  // generate generic buffer
+  glGenBuffers(1, &stars_object.element_BO);
+  // bind this as a vertex array buffer containing all attributes
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planet_object.element_BO);
+  // configure currently bound array buffer
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * starCount, starIndices.data(), GL_STATIC_DRAW);
+
+  // store type of primitive to draw
+  stars_object.draw_mode = GL_POINTS;
+  // transfer number of indices to model object
+  stars_object.num_elements = GLsizei(starCount);
+}
 
 void ApplicationSolar::initializeSceneGraph() {
   // create camera

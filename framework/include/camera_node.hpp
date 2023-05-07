@@ -7,10 +7,14 @@
 // class for the camera inheriting from Node
 class CameraNode : public Node {
 public:
+  // constructor
   CameraNode(std::string const &name, glm::mat4 const& projectionMatrix);
+  //
   bool getPerspective();
+  // get and set if enabled
   bool getEnabled();
   void setEnabled(bool enable);
+  // get and set projection matrix
   glm::mat4 const& getProjectionMatrix();
   void setProjectionMatrix(glm::mat4 const& mat);
 

@@ -29,6 +29,7 @@ public:
   // draw all objects
   void render() override;
   void initializeSceneGraph();
+  void initializePlanets();
 
 protected:
   void initializeShaderPrograms();
@@ -45,6 +46,8 @@ protected:
   // cpu representation of model
   model_object planet_object;
   model_object stars_object;
+  std::map<std::string, model_object> orbit_objects;
+
   //pressed keys
   std::set<int> m_keys_down;
   std::map<std::string, Planet> m_planetData;

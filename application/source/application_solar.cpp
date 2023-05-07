@@ -31,10 +31,12 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
       planet_object{},
       stars_object{},
+      orbit_objects{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
       m_last_frame{0} {
+  initializePlanets();
   initializeGeometry();
   initializeShaderPrograms();
   initializeSceneGraph();
@@ -101,26 +103,15 @@ void ApplicationSolar::uploadUniforms() {
   glm::fmat4 projection_transform = m_cam->getProjectionMatrix();
   glm::fmat4 view_transform = m_cam->getViewTransform();
 
-//  for (auto& iter : m_shaders) {
-//    // bind shader to which to upload uniforms
-//    glUseProgram(iter.second.handle);
-//    // vertices are transformed in camera space, so camera transform must be inverted
-//    // upload matrix to gpu
-//    glUniformMatrix4fv(iter.second.u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
-//    // upload matrix to gpu
-//    glUniformMatrix4fv(iter.second.u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
-//  }
+  for (auto& iter : m_shaders) {
     // bind shader to which to upload uniforms
-    glUseProgram(m_shaders.at("planet").handle);
+    glUseProgram(iter.second.handle);
     // vertices are transformed in camera space, so camera transform must be inverted
     // upload matrix to gpu
-    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
+    glUniformMatrix4fv(iter.second.u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
     // upload matrix to gpu
-    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
-
-    glUseProgram(m_shaders.at("stars").handle);
-    glUniformMatrix4fv(m_shaders.at("stars").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
-    glUniformMatrix4fv(m_shaders.at("stars").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
+    glUniformMatrix4fv(iter.second.u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
+  }
 }
 
 ///////////////////////////// intialisation functions /////////////////////////
@@ -161,11 +152,13 @@ void ApplicationSolar::initializeGeometry() {
   // activate first attribute on gpu
   glEnableVertexAttribArray(0);
   // first attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(0, model::POSITION.components, model::POSITION.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::POSITION]);
+  glVertexAttribPointer(0, model::POSITION.components, model::POSITION.type, GL_FALSE, planet_model.vertex_bytes,
+                        planet_model.offsets[model::POSITION]);
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
   // second attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::NORMAL]);
+  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes,
+                        planet_model.offsets[model::NORMAL]);
 
   // generate generic buffer
   glGenBuffers(1, &planet_object.element_BO);
@@ -215,12 +208,76 @@ void ApplicationSolar::initializeGeometry() {
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
   // second attribute is 3 floats with no
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid*)(3 * sizeof(GLfloat)));
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
 
+  stars_object.has_indices = false;
   // store type of primitive to draw
   stars_object.draw_mode = GL_POINTS;
   // transfer number of indices to model object
   stars_object.num_elements = GLsizei(starCount);
+
+  //////////////// Orbits ////////////////
+
+  int orbitVertsPerUnit = 10;
+  float TWO_PI = 2 * glm::pi<float>();
+
+  for (auto const &pair: m_planetData) {
+    std::string planetName = pair.first;
+    Planet planet = pair.second;
+
+    if (planetName == "sun") {
+      continue;
+    }
+    int orbitVertCount = (int) (TWO_PI * planet.diameter * orbitVertsPerUnit);
+    std::vector<GLfloat> orbitVerts{};
+    std::vector<GLuint> orbitIndices{};
+    model_object orbit_object{};
+    std::cout << "vertex count " << planetName << " " << orbitVertCount << "\n";
+
+    for (int i = 0; i < orbitVertCount; ++i) {
+      orbitVerts.emplace_back(glm::cos(TWO_PI * i / orbitVertCount));
+      orbitVerts.emplace_back(glm::cos(0));
+      orbitVerts.emplace_back(glm::sin(TWO_PI * i / orbitVertCount));
+      //star RGB color
+      orbitVerts.emplace_back(1);
+      orbitVerts.emplace_back(1);
+      orbitVerts.emplace_back(1);
+      orbitIndices.emplace_back(i);
+    }
+    glGenVertexArrays(1, &orbit_object.vertex_AO);
+    glBindVertexArray(orbit_object.vertex_AO);
+
+    glGenBuffers(1, &orbit_object.vertex_BO);
+    glBindBuffer(GL_ARRAY_BUFFER, orbit_object.vertex_BO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), starData.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &orbit_object.element_BO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, orbit_object.element_BO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * orbitIndices.size(), orbitIndices.data(), GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
+
+    orbit_object.draw_mode = GL_LINE_LOOP;
+    orbit_object.num_elements = GLsizei(starCount);
+    orbit_objects.emplace(planetName, orbit_object);
+  }
+}
+
+void ApplicationSolar::initializePlanets() {
+  // Create the planet data with name, diameter, orbit radius and orbital period in seconds
+  m_planetData.emplace("mercury", Planet{.2f, 6, 2, 1});
+  m_planetData.emplace("venus", Planet{.3f, 7, 3, 1});
+  m_planetData.emplace("earth", Planet{.5, 9, 8, 1});
+  m_planetData.emplace("mars", Planet{.4f, 11, 12, 1});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, .1f});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
+  m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
+  m_planetData.emplace("moon", Planet{.1f, 1 , .5f, .5f});
+  m_planetData.emplace("sun", Planet{5, 0 , 0, 1});
 }
 
 void ApplicationSolar::initializeSceneGraph() {
@@ -232,30 +289,14 @@ void ApplicationSolar::initializeSceneGraph() {
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
 
-  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "stars");
-  root->addChild(stars);
-
-  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, "planet");
-  sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
-
-  root->addChild(sunLight);
-  sunLight->addChild(sunGeometry);
-
-  // Create the planet data with name, diameter, orbit radius and orbital period in seconds
-  m_planetData.emplace("mercury", Planet{.2f, 6, 2, 1});
-  m_planetData.emplace("venus", Planet{.3f, 7, 3, 1});
-  m_planetData.emplace("earth", Planet{.5, 9, 8, 1});
-  m_planetData.emplace("mars", Planet{.4f, 11, 12, 1});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, .1f});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
-  m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
-
   // Add the child GeometryNodes to the sun GeometryNode
   for (auto const& pair : m_planetData) {
     std::string name = pair.first;
     Planet planet = pair.second;
+
+    if (name == "moon" || name == "sun") {
+      continue;
+    }
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
     std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
 
@@ -272,20 +313,30 @@ void ApplicationSolar::initializeSceneGraph() {
     //add planet to scene graph
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
+
+    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_objects.at(name), "stars");
+    root->addChild(planetOrbit);
   }
-  //create moon separately
+  //create stars
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "stars");
+  root->addChild(stars);
+
+  //create sun
+  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, "planet");
+  sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
+  root->addChild(sunLight);
+  sunLight->addChild(sunGeometry);
+
+  //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
-
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
-
   //add moon to scene graph rotating around earth
   root->getChild("earth-hold")->addChild(moonHolder);
   moonHolder->addChild(moonGeometry);
-  //add moon to planet data, so it gets rotated in render()
-  m_planetData.emplace("moon", Planet{.1f, 1 , .5f, .5f});
-  m_planetData.emplace("sun", Planet{5, 0 , 0, 1});
+
 }
 
 void ApplicationSolar::moveView(double dTime) {

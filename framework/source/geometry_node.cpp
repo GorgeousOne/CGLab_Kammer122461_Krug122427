@@ -35,6 +35,8 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
     glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(view_transform) * model_matrix);
     //also transform normals
     glUniformMatrix4fv(shaders.at(m_shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
+  }
+  if (m_geometry.has_indices) {
     glDrawElements(m_geometry.draw_mode, m_geometry.num_elements, model::INDEX.type, NULL);
   } else {
     glDrawArrays(m_geometry.draw_mode, 0, m_geometry.num_elements);

@@ -11,7 +11,7 @@
 // use gl definitions from glbinding 
 using namespace gl;
 
-//dont load gl bindings from glfw
+//don't load gl bindings from glfw
 #define GLFW_INCLUDE_NONE
 
 #include <GLFW/glfw3.h>
@@ -45,6 +45,10 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteBuffers(1, &planet_object.vertex_BO);
   glDeleteBuffers(1, &planet_object.element_BO);
   glDeleteVertexArrays(1, &planet_object.vertex_AO);
+
+  glDeleteBuffers(1, &stars_object.vertex_BO);
+  glDeleteBuffers(1, &stars_object.element_BO);
+  glDeleteVertexArrays(1, &stars_object.vertex_AO);
 }
 
 void ApplicationSolar::render() {
@@ -56,7 +60,7 @@ void ApplicationSolar::render() {
   moveView(dTime);
 
   glm::fmat4 view_transform = m_cam->getViewTransform();
-  uploadView(view_transform);
+  uploadUniforms();
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
   m_last_frame = time;
 }
@@ -92,24 +96,31 @@ void ApplicationSolar::rotatePlanets(double dTime) {
   });
 }
 
-void ApplicationSolar::uploadView(glm::fmat4 const& view_transform) {
-  // vertices are transformed in camera space, so camera transform must be inverted
-  // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
-}
-
-void ApplicationSolar::uploadProjection() {
-  // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_cam->getProjectionMatrix()));
-}
-
-// update uniform locations
+// upload uniform values to new locations
 void ApplicationSolar::uploadUniforms() {
-  // bind shader to which to upload unforms
-  glUseProgram(m_shaders.at("planet").handle);
-  // upload uniform values to new locations
-  uploadView(m_cam->getViewTransform());
-  uploadProjection();
+  glm::fmat4 projection_transform = m_cam->getProjectionMatrix();
+  glm::fmat4 view_transform = m_cam->getViewTransform();
+
+//  for (auto& iter : m_shaders) {
+//    // bind shader to which to upload uniforms
+//    glUseProgram(iter.second.handle);
+//    // vertices are transformed in camera space, so camera transform must be inverted
+//    // upload matrix to gpu
+//    glUniformMatrix4fv(iter.second.u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
+//    // upload matrix to gpu
+//    glUniformMatrix4fv(iter.second.u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
+//  }
+    // bind shader to which to upload uniforms
+    glUseProgram(m_shaders.at("planet").handle);
+    // vertices are transformed in camera space, so camera transform must be inverted
+    // upload matrix to gpu
+    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
+    // upload matrix to gpu
+    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
+
+    glUseProgram(m_shaders.at("stars").handle);
+    glUniformMatrix4fv(m_shaders.at("stars").u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view_transform)));
+    glUniformMatrix4fv(m_shaders.at("stars").u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_transform));
 }
 
 ///////////////////////////// intialisation functions /////////////////////////
@@ -118,11 +129,17 @@ void ApplicationSolar::initializeShaderPrograms() {
   // store shader program objects in container
   m_shaders.emplace("planet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
                                               {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+  m_shaders.emplace("stars", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
+                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
+  //stars matrices
+  m_shaders.at("stars").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("stars").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("stars").u_locs["ProjectionMatrix"] = -1;
 }
 
 // load models
@@ -167,7 +184,6 @@ void ApplicationSolar::initializeGeometry() {
   int starCount = 1000;
   float starRange = 50;
   std::vector<GLfloat> starData{};
-  std::vector<GLuint> starIndices{};
 
   for (int i = 0; i < starCount; ++i) {
     //star xyz position
@@ -178,8 +194,6 @@ void ApplicationSolar::initializeGeometry() {
     starData.emplace_back(glm::linearRand(.5f, 1.f));
     starData.emplace_back(glm::linearRand(.5f, 1.f));
     starData.emplace_back(glm::linearRand(.5f, 1.f));
-
-    starIndices.emplace_back(i);
   }
 
   // generate vertex array object
@@ -196,13 +210,13 @@ void ApplicationSolar::initializeGeometry() {
 
   // activate first attribute on gpu
   glEnableVertexAttribArray(0);
-  // first attribute is 3 floats with no offset & stride
+  // first attribute is 3 floats with no offset & stride every 6 floats
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
   // second attribute is 3 floats with no
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid*)(3 * sizeof(GLfloat)));
-  
+
   // store type of primitive to draw
   stars_object.draw_mode = GL_POINTS;
   // transfer number of indices to model object
@@ -217,8 +231,12 @@ void ApplicationSolar::initializeSceneGraph() {
 
   // Create the sun GeometryNode
   std::shared_ptr<Node> root = SceneGraph::get().getRoot();
+
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "stars");
+  root->addChild(stars);
+
   std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object);
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
 
   root->addChild(sunLight);
@@ -239,7 +257,7 @@ void ApplicationSolar::initializeSceneGraph() {
     std::string name = pair.first;
     Planet planet = pair.second;
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object);
+    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //give each planet a random rotation for the start
@@ -257,7 +275,7 @@ void ApplicationSolar::initializeSceneGraph() {
   }
   //create moon separately
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object);
+  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
 
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
@@ -329,8 +347,6 @@ void ApplicationSolar::resizeCallback(unsigned width, unsigned height) {
   std::cout << "resize\n";
   //recalculate projection matrix for new aspect ratio
   m_cam->setProjectionMatrix(utils::calculate_projection_matrix(float(width) / float(height)));
-  //upload new projection matrix
-  uploadProjection();
 }
 
 // exe entry point

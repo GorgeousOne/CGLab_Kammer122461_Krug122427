@@ -35,10 +35,7 @@ protected:
   void initializeGeometry();
   // update uniform values
   void uploadUniforms() override;
-  // upload projection matrix
-  void uploadProjection();
-  // upload view matrix
-  void uploadView(glm::fmat4 const& view_transform);
+
   void rotatePlanets(double dTime);
   // move view based on key presses
   void moveView(double dTime);

@@ -7,12 +7,13 @@
 
 class GeometryNode : public Node {
 public:
-  GeometryNode(std::string const &name, model_object& geometry);
+  GeometryNode(std::string const &name, model_object& geometry, std::string const& shader);
   model_object const& getGeometry();
   void setGeometry(model_object const& geometry);
-  void render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform) override;
+  void render(std::map<std::string, shader_program> const& m_shaders, glm::mat4 const& view_transform) override;
 private:
   model_object m_geometry;
+  std::string m_shader;
 };
 #endif //OPENGL_FRAMEWORK_GEOMETRY_NODE_HPP
 

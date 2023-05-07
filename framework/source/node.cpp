@@ -102,7 +102,7 @@ std::shared_ptr<Node> Node::removeChild(const std::string &name) {
   return nullptr;
 }
 
-void Node::render(std::map<std::string, shader_program> m_shaders, glm::mat4 const& view_transform) {
+void Node::render(std::map<std::string, shader_program> const& m_shaders, glm::mat4 const& view_transform) {
   //render nothing by default and only call render on children
   for (auto& pair : m_children) {
     pair.second->render(m_shaders, view_transform);

@@ -120,7 +120,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   // store shader program objects in container
   m_shaders.emplace("planet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
                                               {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
-  m_shaders.emplace("stars", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
+  m_shaders.emplace("wirenet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
                                               {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
@@ -128,9 +128,9 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
   //stars matrices
-  m_shaders.at("stars").u_locs["ModelMatrix"] = -1;
-  m_shaders.at("stars").u_locs["ViewMatrix"] = -1;
-  m_shaders.at("stars").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("wirenet").u_locs["ProjectionMatrix"] = -1;
 }
 
 // load models
@@ -174,8 +174,8 @@ void ApplicationSolar::initializeGeometry() {
 
   //////////////// Stars ////////////////
 
-  int starCount = 1000;
-  float starRange = 50;
+  int starCount = 8000;
+  float starRange = 100;
   std::vector<GLfloat> starData{};
 
   for (int i = 0; i < starCount; ++i) {
@@ -218,8 +218,8 @@ void ApplicationSolar::initializeGeometry() {
 
   //////////////// Orbits ////////////////
 
-  int orbitVertsPerUnit = 10;
   float TWO_PI = 2 * glm::pi<float>();
+  int orbitVertCount = 200;
 
   for (auto const &pair: m_planetData) {
     std::string planetName = pair.first;
@@ -228,20 +228,21 @@ void ApplicationSolar::initializeGeometry() {
     if (planetName == "sun") {
       continue;
     }
-    int orbitVertCount = (int) (TWO_PI * planet.diameter * orbitVertsPerUnit);
+    std::cout << planetName << " " << orbitVertCount << "\n";
     std::vector<GLfloat> orbitVerts{};
     std::vector<GLuint> orbitIndices{};
     model_object orbit_object{};
-    std::cout << "vertex count " << planetName << " " << orbitVertCount << "\n";
 
     for (int i = 0; i < orbitVertCount; ++i) {
-      orbitVerts.emplace_back(glm::cos(TWO_PI * i / orbitVertCount));
-      orbitVerts.emplace_back(glm::cos(0));
-      orbitVerts.emplace_back(glm::sin(TWO_PI * i / orbitVertCount));
-      //star RGB color
+      //orbit vertex position xyz
+      orbitVerts.emplace_back(glm::cos(TWO_PI * i / orbitVertCount) * planet.orbitRadius);
+      orbitVerts.emplace_back(0);
+      orbitVerts.emplace_back(glm::sin(TWO_PI * i / orbitVertCount) * planet.orbitRadius);
+      //orbit color
       orbitVerts.emplace_back(1);
       orbitVerts.emplace_back(1);
       orbitVerts.emplace_back(1);
+      //vertex index
       orbitIndices.emplace_back(i);
     }
     glGenVertexArrays(1, &orbit_object.vertex_AO);
@@ -249,7 +250,7 @@ void ApplicationSolar::initializeGeometry() {
 
     glGenBuffers(1, &orbit_object.vertex_BO);
     glBindBuffer(GL_ARRAY_BUFFER, orbit_object.vertex_BO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), starData.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), orbitVerts.data(), GL_STATIC_DRAW);
 
     glGenBuffers(1, &orbit_object.element_BO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, orbit_object.element_BO);
@@ -259,20 +260,21 @@ void ApplicationSolar::initializeGeometry() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
-
+    //draw orbit vertices as closed polyline
     orbit_object.draw_mode = GL_LINE_LOOP;
-    orbit_object.num_elements = GLsizei(starCount);
+    orbit_object.num_elements = GLsizei(orbitVertCount);
     orbit_objects.emplace(planetName, orbit_object);
   }
 }
 
+//define planet dimensions
 void ApplicationSolar::initializePlanets() {
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
   m_planetData.emplace("mercury", Planet{.2f, 6, 2, 1});
   m_planetData.emplace("venus", Planet{.3f, 7, 3, 1});
   m_planetData.emplace("earth", Planet{.5, 9, 8, 1});
   m_planetData.emplace("mars", Planet{.4f, 11, 12, 1});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, .1f});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1});
   m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
   m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
   m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
@@ -301,7 +303,7 @@ void ApplicationSolar::initializeSceneGraph() {
     std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
-    //give each planet a random rotation for the start
+    //give each planet a random rotation at start
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
     //translate each planet from the sun away
     transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
@@ -314,11 +316,11 @@ void ApplicationSolar::initializeSceneGraph() {
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
 
-    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_objects.at(name), "stars");
+    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_objects.at(name), "wirenet");
     root->addChild(planetOrbit);
   }
   //create stars
-  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "stars");
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "wirenet");
   root->addChild(stars);
 
   //create sun
@@ -331,12 +333,15 @@ void ApplicationSolar::initializeSceneGraph() {
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
+  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_objects.at("moon"), "wirenet");
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
   moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
-  //add moon to scene graph rotating around earth
-  root->getChild("earth-hold")->addChild(moonHolder);
-  moonHolder->addChild(moonGeometry);
 
+  //add moon to scene graph rotating around earth
+  auto earth = root->getChild("earth-hold");
+  moonHolder->addChild(moonGeometry);
+  earth->addChild(moonHolder);
+  earth->addChild(moonOrbit);
 }
 
 void ApplicationSolar::moveView(double dTime) {

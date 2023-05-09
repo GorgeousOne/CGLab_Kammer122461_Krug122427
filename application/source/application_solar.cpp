@@ -24,8 +24,10 @@ using namespace gl;
 
 #include <memory>
 #include <string>
+#include <numeric>
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
+#include "shader_attrib.hpp"
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
@@ -136,40 +138,8 @@ void ApplicationSolar::initializeShaderPrograms() {
 // load models
 void ApplicationSolar::initializeGeometry() {
   model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL);
-
-  // generate vertex array object
-  glGenVertexArrays(1, &planet_object.vertex_AO);
-  // bind the array for attaching buffers
-  glBindVertexArray(planet_object.vertex_AO);
-
-  // generate generic buffer
-  glGenBuffers(1, &planet_object.vertex_BO);
-  // bind this as a vertex array buffer containing all attributes
-  glBindBuffer(GL_ARRAY_BUFFER, planet_object.vertex_BO);
-  // configure currently bound array buffer
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * planet_model.data.size(), planet_model.data.data(), GL_STATIC_DRAW);
-
-  // activate first attribute on gpu
-  glEnableVertexAttribArray(0);
-  // first attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(0, model::POSITION.components, model::POSITION.type, GL_FALSE, planet_model.vertex_bytes,
-                        planet_model.offsets[model::POSITION]);
-  // activate second attribute on gpu
-  glEnableVertexAttribArray(1);
-  // second attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::NORMAL]);
-
-  // generate generic buffer
-  glGenBuffers(1, &planet_object.element_BO);
-  // bind this as a vertex array buffer containing all attributes
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planet_object.element_BO);
-  // configure currently bound array buffer
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, model::INDEX.size * planet_model.indices.size(), planet_model.indices.data(), GL_STATIC_DRAW);
-
-  // store type of primitive to draw
   planet_object.draw_mode = GL_TRIANGLES;
-  // transfer number of indices to model object 
-  planet_object.num_elements = GLsizei(planet_model.indices.size());
+  bindObjModel(planet_object, planet_model);
 
   //////////////// Stars ////////////////
 
@@ -187,33 +157,12 @@ void ApplicationSolar::initializeGeometry() {
     starData.emplace_back(glm::linearRand(.5f, 1.f));
     starData.emplace_back(glm::linearRand(.5f, 1.f));
   }
-
-  // generate vertex array object
-  glGenVertexArrays(1, &stars_object.vertex_AO);
-  // bind the array for attaching buffers
-  glBindVertexArray(stars_object.vertex_AO);
-
-  // generate generic buffer
-  glGenBuffers(1, &stars_object.vertex_BO);
-  // bind this as a vertex array buffer containing all attributes
-  glBindBuffer(GL_ARRAY_BUFFER, stars_object.vertex_BO);
-  // configure currently bound array buffer
-  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * starData.size(), starData.data(), GL_STATIC_DRAW);
-
-  // activate first attribute on gpu
-  glEnableVertexAttribArray(0);
-  // first attribute is 3 floats with no offset & stride every 6 floats
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
-  // activate second attribute on gpu
-  glEnableVertexAttribArray(1);
-  // second attribute is 3 floats with no
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
-
-  stars_object.has_indices = false;
-  // store type of primitive to draw
   stars_object.draw_mode = GL_POINTS;
-  // transfer number of indices to model object
-  stars_object.num_elements = GLsizei(starCount);
+  stars_object.num_elements = starCount;
+  bindModel(stars_object, starData, std::vector<GLuint>{}, std::vector<ShaderAttrib>{
+    ShaderAttrib{0, 3, 6, 0},
+    ShaderAttrib{1, 3, 6, 3}
+  });
 
   //////////////// Orbit ////////////////
 
@@ -235,25 +184,82 @@ void ApplicationSolar::initializeGeometry() {
     //vertex index
     orbitIndices.emplace_back(i);
   }
-  glGenVertexArrays(1, &orbit_object.vertex_AO);
-  glBindVertexArray(orbit_object.vertex_AO);
-
-  glGenBuffers(1, &orbit_object.vertex_BO);
-  glBindBuffer(GL_ARRAY_BUFFER, orbit_object.vertex_BO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), orbitVerts.data(), GL_STATIC_DRAW);
-
-  glGenBuffers(1, &orbit_object.element_BO);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, orbit_object.element_BO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * orbitIndices.size(), orbitIndices.data(), GL_STATIC_DRAW);
-
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
-  //draw orbit vertices as closed polyline
   orbit_object.draw_mode = GL_LINE_LOOP;
-  orbit_object.num_elements = GLsizei(orbitVertCount);
+  orbit_object.num_elements = orbitVertCount;
+  bindModel(orbit_object, orbitVerts, orbitIndices, std::vector<ShaderAttrib>{
+      ShaderAttrib{0, 3, 6, 0},
+      ShaderAttrib{1, 3, 6, 3}
+  });
 }
+
+void ApplicationSolar::bindObjModel(model_object &bound, model &model) {
+// generate vertex array object
+  glGenVertexArrays(1, &bound.vertex_AO);
+  // bind the array for attaching buffers
+  glBindVertexArray(bound.vertex_AO);
+
+  // generate generic buffer
+  glGenBuffers(1, &bound.vertex_BO);
+  // bind this as a vertex array buffer containing all attributes
+  glBindBuffer(GL_ARRAY_BUFFER, bound.vertex_BO);
+  // configure currently bound array buffer
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * model.data.size(), model.data.data(), GL_STATIC_DRAW);
+
+  // activate first attribute on gpu
+  glEnableVertexAttribArray(0);
+  // first attribute is 3 floats with no offset & stride
+  glVertexAttribPointer(0, model::POSITION.components, model::POSITION.type, GL_FALSE, model.vertex_bytes, model.offsets[model::POSITION]);
+  // activate second attribute on gpu
+  glEnableVertexAttribArray(1);
+  // second attribute is 3 floats with no offset & stride
+  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, model.vertex_bytes, model.offsets[model::NORMAL]);
+
+  // generate generic buffer
+  glGenBuffers(1, &bound.element_BO);
+  // bind this as a vertex array buffer containing all attributes
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bound.element_BO);
+  // configure currently bound array buffer
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, model::INDEX.size * model.indices.size(), model.indices.data(), GL_STATIC_DRAW);
+
+  // store type of primitive to draw
+  bound.draw_mode = bound.draw_mode;
+  // transfer number of indices to model object
+  bound.num_elements = GLsizei(model.indices.size());
+}
+
+void ApplicationSolar::bindModel(
+    model_object &bound,
+    std::vector<GLfloat> const& modelData,
+    std::vector<GLuint> const& indices,
+    std::vector<ShaderAttrib> const& attribs) {
+
+  // generate vertex array object
+  glGenVertexArrays(1, &bound.vertex_AO);
+  // bind the array for attaching buffers
+  glBindVertexArray(bound.vertex_AO);
+
+  // generate generic buffer
+  glGenBuffers(1, &bound.vertex_BO);
+  // bind this as a vertex array buffer containing all attributes
+  glBindBuffer(GL_ARRAY_BUFFER, bound.vertex_BO);
+  // configure currently bound array buffer
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * modelData.size(), modelData.data(), GL_STATIC_DRAW);
+
+  for (ShaderAttrib const& attrib : attribs) {
+    // activate first attribute on gpu
+    glEnableVertexAttribArray(attrib.index);
+    // first attribute is 3 floats with no offset & stride every 6 floats
+    glVertexAttribPointer(attrib.index, attrib.size, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * attrib.stride, (GLvoid *) (attrib.offset * sizeof(GLfloat)));
+  }
+  if (indices.empty()) {
+    bound.has_indices = false;
+  } else {
+    glGenBuffers(1, &bound.element_BO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bound.element_BO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), indices.data(), GL_STATIC_DRAW);
+  }
+}
+
 
 //define planet dimensions
 void ApplicationSolar::initializePlanets() {

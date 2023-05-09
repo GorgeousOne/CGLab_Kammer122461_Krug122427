@@ -10,6 +10,7 @@
 #include "node.hpp"
 #include "scene_graph.hpp"
 #include "planet.hpp"
+#include "shader_attrib.hpp"
 
 // gpu representation of model
 class ApplicationSolar : public Application {
@@ -30,6 +31,14 @@ public:
   void render() override;
   void initializeSceneGraph();
   void initializePlanets();
+
+  void bindObjModel(model_object &bound, model &model);
+  void bindModel(
+      model_object &bound,
+      std::vector<GLfloat> const& modelData,
+      std::vector<GLuint> const& indices,
+      std::vector<ShaderAttrib> const& attribs);
+
 
 protected:
   void initializeShaderPrograms();

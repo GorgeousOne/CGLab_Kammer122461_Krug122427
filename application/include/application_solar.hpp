@@ -10,6 +10,7 @@
 #include "node.hpp"
 #include "scene_graph.hpp"
 #include "planet.hpp"
+#include "shader_attrib.hpp"
 
 // gpu representation of model
 class ApplicationSolar : public Application {
@@ -31,6 +32,14 @@ public:
   void initializeSceneGraph();
   void initializePlanets();
 
+  void bindObjModel(model_object &bound, model &model);
+  void bindModel(
+      model_object &bound,
+      std::vector<GLfloat> const& modelData,
+      std::vector<GLuint> const& indices,
+      std::vector<ShaderAttrib> const& attribs);
+
+
 protected:
   void initializeShaderPrograms();
   void initializeGeometry();
@@ -47,6 +56,7 @@ protected:
   model_object planet_object;
   model_object stars_object;
   model_object orbit_object;
+  model_object planet_object2;
 
   //pressed keys
   std::set<int> m_keys_down;

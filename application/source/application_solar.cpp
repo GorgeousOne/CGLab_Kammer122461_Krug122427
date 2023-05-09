@@ -31,7 +31,7 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
       planet_object{},
       stars_object{},
-      orbit_objects{},
+      orbit_object{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
@@ -157,8 +157,7 @@ void ApplicationSolar::initializeGeometry() {
   // activate second attribute on gpu
   glEnableVertexAttribArray(1);
   // second attribute is 3 floats with no offset & stride
-  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes,
-                        planet_model.offsets[model::NORMAL]);
+  glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::NORMAL]);
 
   // generate generic buffer
   glGenBuffers(1, &planet_object.element_BO);
@@ -216,55 +215,44 @@ void ApplicationSolar::initializeGeometry() {
   // transfer number of indices to model object
   stars_object.num_elements = GLsizei(starCount);
 
-  //////////////// Orbits ////////////////
+  //////////////// Orbit ////////////////
 
   float TWO_PI = 2 * glm::pi<float>();
   int orbitVertCount = 200;
 
-  for (auto const &pair: m_planetData) {
-    std::string planetName = pair.first;
-    Planet planet = pair.second;
+  std::vector<GLfloat> orbitVerts{};
+  std::vector<GLuint> orbitIndices{};
 
-    if (planetName == "sun") {
-      continue;
-    }
-    std::cout << planetName << " " << orbitVertCount << "\n";
-    std::vector<GLfloat> orbitVerts{};
-    std::vector<GLuint> orbitIndices{};
-    model_object orbit_object{};
-
-    for (int i = 0; i < orbitVertCount; ++i) {
-      //orbit vertex position xyz
-      orbitVerts.emplace_back(glm::cos(TWO_PI * i / orbitVertCount) * planet.orbitRadius);
-      orbitVerts.emplace_back(0);
-      orbitVerts.emplace_back(glm::sin(TWO_PI * i / orbitVertCount) * planet.orbitRadius);
-      //orbit color
-      orbitVerts.emplace_back(1);
-      orbitVerts.emplace_back(1);
-      orbitVerts.emplace_back(1);
-      //vertex index
-      orbitIndices.emplace_back(i);
-    }
-    glGenVertexArrays(1, &orbit_object.vertex_AO);
-    glBindVertexArray(orbit_object.vertex_AO);
-
-    glGenBuffers(1, &orbit_object.vertex_BO);
-    glBindBuffer(GL_ARRAY_BUFFER, orbit_object.vertex_BO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), orbitVerts.data(), GL_STATIC_DRAW);
-
-    glGenBuffers(1, &orbit_object.element_BO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, orbit_object.element_BO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * orbitIndices.size(), orbitIndices.data(), GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
-    //draw orbit vertices as closed polyline
-    orbit_object.draw_mode = GL_LINE_LOOP;
-    orbit_object.num_elements = GLsizei(orbitVertCount);
-    orbit_objects.emplace(planetName, orbit_object);
+  for (int i = 0; i < orbitVertCount; ++i) {
+    //orbit vertex position xyz
+    orbitVerts.emplace_back(glm::cos(TWO_PI * i / orbitVertCount));
+    orbitVerts.emplace_back(0);
+    orbitVerts.emplace_back(glm::sin(TWO_PI * i / orbitVertCount));
+    //orbit color
+    orbitVerts.emplace_back(1);
+    orbitVerts.emplace_back(1);
+    orbitVerts.emplace_back(1);
+    //vertex index
+    orbitIndices.emplace_back(i);
   }
+  glGenVertexArrays(1, &orbit_object.vertex_AO);
+  glBindVertexArray(orbit_object.vertex_AO);
+
+  glGenBuffers(1, &orbit_object.vertex_BO);
+  glBindBuffer(GL_ARRAY_BUFFER, orbit_object.vertex_BO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * orbitVerts.size(), orbitVerts.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &orbit_object.element_BO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, orbit_object.element_BO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * orbitIndices.size(), orbitIndices.data(), GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, NULL);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (GLvoid *) (3 * sizeof(GLfloat)));
+  //draw orbit vertices as closed polyline
+  orbit_object.draw_mode = GL_LINE_LOOP;
+  orbit_object.num_elements = GLsizei(orbitVertCount);
 }
 
 //define planet dimensions
@@ -316,7 +304,8 @@ void ApplicationSolar::initializeSceneGraph() {
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
 
-    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_objects.at(name), "wirenet");
+    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, "wirenet");
+    planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
     root->addChild(planetOrbit);
   }
   //create stars
@@ -333,9 +322,12 @@ void ApplicationSolar::initializeSceneGraph() {
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
-  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_objects.at("moon"), "wirenet");
-  moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(0, 0, 1)));
-  moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(.1f)));
+  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, "wirenet");
+
+  Planet moonData = m_planetData.at("moon");
+  moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, 0, 0)));
+  moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.diameter)));
+  moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
 
   //add moon to scene graph rotating around earth
   auto earth = root->getChild("earth-hold");

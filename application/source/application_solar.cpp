@@ -17,14 +17,12 @@ using namespace gl;
 #include <GLFW/glfw3.h>
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
 
 #include <memory>
 #include <string>
-#include <numeric>
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
 #include "shader_attrib.hpp"
@@ -34,6 +32,7 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
       planet_object{},
       stars_object{},
       orbit_object{},
+      planet_object2{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
@@ -140,6 +139,10 @@ void ApplicationSolar::initializeGeometry() {
   model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL);
   planet_object.draw_mode = GL_TRIANGLES;
   bindObjModel(planet_object, planet_model);
+
+  model planet_model2 = model_loader::obj(m_resource_path + "models/sphere1.obj", model::NORMAL);
+  planet_object2.draw_mode = GL_TRIANGLES;
+  bindObjModel(planet_object2, planet_model2);
 
   //////////////// Stars ////////////////
 
@@ -264,16 +267,16 @@ void ApplicationSolar::bindModel(
 //define planet dimensions
 void ApplicationSolar::initializePlanets() {
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
-  m_planetData.emplace("mercury", Planet{.2f, 6, 2, 1});
-  m_planetData.emplace("venus", Planet{.3f, 7, 3, 1});
-  m_planetData.emplace("earth", Planet{.5, 9, 8, 1});
-  m_planetData.emplace("mars", Planet{.4f, 11, 12, 1});
+  m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1});
+  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1});
+  m_planetData.emplace("earth", Planet{.5, 9, 15, 1});
+  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1});
   m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1});
   m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
   m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
   m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
-  m_planetData.emplace("moon", Planet{.1f, 1 , .5f, .5f});
-  m_planetData.emplace("sun", Planet{5, 0 , 0, 1});
+  m_planetData.emplace("moon", Planet{.2f, 1, 3, 1});
+  m_planetData.emplace("sun", Planet{5, 0, 120, 1});
 }
 
 void ApplicationSolar::initializeSceneGraph() {
@@ -327,12 +330,12 @@ void ApplicationSolar::initializeSceneGraph() {
 
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
+  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, "planet");
   std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, "wirenet");
 
   Planet moonData = m_planetData.at("moon");
-  moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, 0, 0)));
-  moonGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.diameter)));
+  moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, -.3f, 0)));
+  moonGeometry->setLocalTransform(glm::rotate(glm::mat4(1), glm::radians(20.f), glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1), glm::vec3(moonData.diameter)));
   moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
 
   //add moon to scene graph rotating around earth
@@ -344,7 +347,7 @@ void ApplicationSolar::initializeSceneGraph() {
 
 void ApplicationSolar::moveView(double dTime) {
   glm::fvec4 movement = glm::fvec4(0);
-  float speed = 10;
+  float speed = 5;
   //update movement vector if movement keys are pressed
   if (isKeyDown(GLFW_KEY_W)) {
     movement[2] -= speed;

@@ -56,6 +56,7 @@ protected:
   model_object planet_object;
   model_object stars_object;
   model_object orbit_object;
+  model_object planet_object2;
 
   //pressed keys
   std::set<int> m_keys_down;

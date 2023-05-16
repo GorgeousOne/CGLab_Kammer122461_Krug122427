@@ -52,6 +52,10 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteBuffers(1, &stars_object.vertex_BO);
   glDeleteBuffers(1, &stars_object.element_BO);
   glDeleteVertexArrays(1, &stars_object.vertex_AO);
+
+  glDeleteBuffers(1, &orbit_object.vertex_BO);
+  glDeleteBuffers(1, &orbit_object.element_BO);
+  glDeleteVertexArrays(1, &orbit_object.vertex_AO);
 }
 
 void ApplicationSolar::render() {

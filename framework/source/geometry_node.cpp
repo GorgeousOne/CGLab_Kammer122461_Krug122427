@@ -4,9 +4,10 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <iostream>
 
-GeometryNode::GeometryNode(std::string const &name, model_object& geometry, std::string const& shader) :
+GeometryNode::GeometryNode(std::string const &name, model_object& geometry, glm::fvec3 color, std::string const& shader) :
     Node(name),
     m_geometry{geometry},
+    m_color{color},
     m_shader{shader} {}
 
 //returns the geometry of the node
@@ -35,6 +36,7 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
     glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(view_transform) * model_matrix);
     //also transform normals
     glUniformMatrix4fv(shaders.at(m_shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
+    glUniform3fv(shaders.at(m_shader).u_locs.at("Color"), 1, glm::value_ptr(m_color));
   }
   if (m_geometry.has_indices) {
     glDrawElements(m_geometry.draw_mode, m_geometry.num_elements, model::INDEX.type, NULL);

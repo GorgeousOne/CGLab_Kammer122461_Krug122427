@@ -24,7 +24,7 @@ void main(void)
 {
 	vec4 worldPos = ModelMatrix * vec4(in_Position, 1.0);
 	gl_Position = (ProjectionMatrix * ViewMatrix) * worldPos;
-	pass_Normal = (ModelMatrix * vec4(in_Normal, 0.0)).xyz;
+	pass_Normal = (NormalMatrix * vec4(in_Normal, 0.0)).xyz;
 	pass_Color = Color;
 
 	pass_PointLightDir = normalize(worldPos.xyz - PointLightPos);

@@ -18,6 +18,7 @@ using namespace gl;
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 
@@ -26,6 +27,7 @@ using namespace gl;
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
 #include "shader_attrib.hpp"
+#include "point_light_node.hpp"
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
@@ -71,6 +73,12 @@ void ApplicationSolar::render() {
 
   glUseProgram(m_shaders.at("planet").handle);
   glUniform3fv(m_shaders.at("planet").u_locs.at("AmbientLight"), 1, glm::value_ptr(glm::fvec3(.5)));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("AmbientLight"), 1, glm::value_ptr(glm::fvec3(.5)));
+  std::shared_ptr<PointLightNode> sun = std::dynamic_pointer_cast<PointLightNode>(SceneGraph::get().getRoot()->getChild("sun-light"));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightPos"), 1, glm::value_ptr(glm::fvec3(sun->getWorldTransform()[3])));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightColor"), 1, glm::value_ptr(sun->getColor() * sun->getIntensity()));
+
+
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
 
   m_last_frame = time;
@@ -137,6 +145,8 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
   m_shaders.at("planet").u_locs["Color"] = -1;
+  m_shaders.at("planet").u_locs["PointLightColor"] = -1;
+  m_shaders.at("planet").u_locs["PointLightPos"] = -1;
   m_shaders.at("planet").u_locs["AmbientLight"] = -1;
   //stars matrices
   m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
@@ -332,7 +342,7 @@ void ApplicationSolar::initializeSceneGraph() {
   root->addChild(stars);
 
   //create sun
-  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
+  std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 1);
   std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, glm::vec3(1), "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
   root->addChild(sunLight);

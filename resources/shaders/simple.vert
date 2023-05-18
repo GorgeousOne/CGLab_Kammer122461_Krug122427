@@ -10,10 +10,14 @@ uniform mat4 ViewMatrix;
 uniform mat4 ProjectionMatrix;
 uniform mat4 NormalMatrix;
 uniform vec3 Color;
+uniform vec3 PointLightColor;
+uniform vec3 PointLightPos;
 uniform vec3 AmbientLight;
 
 out vec3 pass_Normal;
 out vec3 pass_Color;
+out vec3 pass_PointLightColor;
+out vec3 pass_PointLightDir;
 out vec3 pass_AmbientLight;
 
 void main(void)
@@ -21,5 +25,7 @@ void main(void)
 	gl_Position = (ProjectionMatrix  * ViewMatrix * ModelMatrix) * vec4(in_Position, 1.0);
 	pass_Normal = (NormalMatrix * vec4(in_Normal, 0.0)).xyz;
 	pass_Color = Color;
+	pass_PointLightColor = PointLightColor;
+	pass_PointLightDir = normalize(vec3(gl_Position) - PointLightPos);
 	pass_AmbientLight = AmbientLight;
 }

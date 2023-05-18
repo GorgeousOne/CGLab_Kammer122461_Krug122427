@@ -342,15 +342,15 @@ void ApplicationSolar::initializeSceneGraph() {
   root->addChild(stars);
 
   //create sun
-  std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 1);
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, glm::vec3(1), "planet");
+  std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 5);
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, m_planetData.at("sun").color, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
 
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, glm::vec3(), "planet");
+  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, m_planetData.at("moon").color, "planet");
   std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, glm::vec3(), "wirenet");
 
   Planet moonData = m_planetData.at("moon");

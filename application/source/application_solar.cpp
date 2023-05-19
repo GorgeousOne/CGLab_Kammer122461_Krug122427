@@ -287,16 +287,16 @@ void ApplicationSolar::bindModel(
 //define planet dimensions
 void ApplicationSolar::initializePlanets() {
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
-  m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1, glm::fvec3(1)});
-  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("earth", Planet{.5, 9, 15, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("uranus", Planet{1, 22, 45, 1, glm::fvec3(1, .71, .71)});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1, glm::fvec3(1, .71, .71)});
+  m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1, glm::fvec3(0.73, 0.73, 0.73)});
+  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1, glm::fvec3(0.96, 0.64, 0.09)});
+  m_planetData.emplace("earth", Planet{.5, 9, 15, 1, glm::fvec3(0.02, 0.36, 1.00)});
+  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1, glm::fvec3(0.79, 0.05, 0.05)});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1, glm::fvec3(1.00, 0.28, 0.08)});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1, glm::fvec3(0.89, 0.67, 0.30)});
+  m_planetData.emplace("uranus", Planet{1, 22, 45, 1, glm::fvec3(0.51, 0.74, 0.41)});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1, glm::fvec3(0.09, 0.14, 0.92)});
   m_planetData.emplace("moon", Planet{.2f, 1, 3, 1, glm::fvec3(.5f)});
-  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(1, .71, .71)});
+  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(10000)});
 }
 
 void ApplicationSolar::initializeSceneGraph() {

@@ -1,8 +1,6 @@
 #ifndef OPENGL_FRAMEWORK_PLANET_HPP
 #define OPENGL_FRAMEWORK_PLANET_HPP
 
-#include <string>
-
 //struct to store planet information
 struct Planet {
   //scale of the planet model
@@ -13,5 +11,6 @@ struct Planet {
   float orbitPeriod;
   //duration of rotation around self in seconds
   float rotationPeriod;
+  glm::fvec3 color;
 };
 #endif //OPENGL_FRAMEWORK_PLANET_HPP

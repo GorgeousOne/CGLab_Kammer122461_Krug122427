@@ -18,6 +18,7 @@ using namespace gl;
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 
@@ -26,6 +27,7 @@ using namespace gl;
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
 #include "shader_attrib.hpp"
+#include "point_light_node.hpp"
 
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
@@ -68,7 +70,17 @@ void ApplicationSolar::render() {
 
   glm::fmat4 view_transform = m_cam->getViewTransform();
   uploadUniforms();
+
+  glUseProgram(m_shaders.at("planet").handle);
+  glUniform3fv(m_shaders.at("planet").u_locs.at("AmbientLight"), 1, glm::value_ptr(glm::fvec3(.5f)));
+  std::shared_ptr<PointLightNode> sun = std::dynamic_pointer_cast<PointLightNode>(SceneGraph::get().getRoot()->getChild("sun-light"));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightPos"), 1, glm::value_ptr(glm::fvec3(sun->getWorldTransform()[3])));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightColor"), 1, glm::value_ptr(sun->getColor() * sun->getIntensity()));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
+
+
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
+
   m_last_frame = time;
 }
 
@@ -132,6 +144,11 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("planet").u_locs["Color"] = -1;
+  m_shaders.at("planet").u_locs["PointLightColor"] = -1;
+  m_shaders.at("planet").u_locs["PointLightPos"] = -1;
+  m_shaders.at("planet").u_locs["AmbientLight"] = -1;
+  m_shaders.at("planet").u_locs["CameraPos"] = -1;
   //stars matrices
   m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
@@ -271,16 +288,16 @@ void ApplicationSolar::bindModel(
 //define planet dimensions
 void ApplicationSolar::initializePlanets() {
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
-  m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1});
-  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1});
-  m_planetData.emplace("earth", Planet{.5, 9, 15, 1});
-  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1});
-  m_planetData.emplace("uranus", Planet{1, 22, 45, 1});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1});
-  m_planetData.emplace("moon", Planet{.2f, 1, 3, 1});
-  m_planetData.emplace("sun", Planet{5, 0, 120, 1});
+  m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1, glm::fvec3(0.73, 0.73, 0.73)});
+  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1, glm::fvec3(0.96, 0.64, 0.09)});
+  m_planetData.emplace("earth", Planet{.5, 9, 15, 1, glm::fvec3(0.02, 0.36, 1.00)});
+  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1, glm::fvec3(0.79, 0.05, 0.05)});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1, glm::fvec3(1.00, 0.28, 0.08)});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1, glm::fvec3(0.89, 0.67, 0.30)});
+  m_planetData.emplace("uranus", Planet{1, 22, 45, 1, glm::fvec3(0.51, 0.74, 0.41)});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1, glm::fvec3(0.09, 0.14, 0.92)});
+  m_planetData.emplace("moon", Planet{.2f, 1, 3, 1, glm::fvec3(.5f)});
+  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(10000)});
 }
 
 void ApplicationSolar::initializeSceneGraph() {
@@ -301,7 +318,7 @@ void ApplicationSolar::initializeSceneGraph() {
       continue;
     }
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
+    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //give each planet a random rotation at start
@@ -317,25 +334,25 @@ void ApplicationSolar::initializeSceneGraph() {
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
 
-    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, "wirenet");
+    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, planet.color, "wirenet");
     planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
     root->addChild(planetOrbit);
   }
   //create stars
-  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "wirenet");
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, glm::vec3(), "wirenet");
   root->addChild(stars);
 
   //create sun
-  std::shared_ptr<Node> sunLight = std::make_shared<Node>("sun-light");
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, "planet");
+  std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 1000);
+  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, m_planetData.at("sun").color, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
 
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, "planet");
-  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, "wirenet");
+  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, m_planetData.at("moon").color, "planet");
+  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, glm::vec3(), "wirenet");
 
   Planet moonData = m_planetData.at("moon");
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, -.3f, 0)));

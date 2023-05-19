@@ -58,7 +58,17 @@ target_link_libraries(framework glbinding glfw ${GLFW_LIBRARIES})
 # include headers in all following applications
 include_directories(application/include)
 
-add_executable(solar_system application/source/application_solar.cpp framework/include/node.hpp framework/source/node.cpp framework/include/geometry_node.hpp framework/source/geometry_node.cpp framework/include/camera_node.hpp framework/source/camera_node.cpp framework/include/planet.hpp framework/include/scene_graph.hpp framework/include/shader_attrib.hpp)
+add_executable(solar_system
+        application/source/application_solar.cpp
+        framework/include/node.hpp framework/source/node.cpp
+        framework/include/geometry_node.hpp framework/source/geometry_node.cpp
+        framework/include/point_light_node.hpp framework/source/point_light_node.cpp
+        framework/include/camera_node.hpp framework/source/camera_node.cpp
+        framework/include/scene_graph.hpp
+        framework/include/planet.hpp
+        framework/include/shader_attrib.hpp
+)
+
 target_link_libraries(solar_system framework)
 
 # MacOS doesnt support simple compat mode required for examples

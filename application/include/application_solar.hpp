@@ -50,7 +50,9 @@ protected:
   // move view based on key presses
   void moveView(double dTime);
   //
-  bool isKeyDown(int key);
+  bool isKeyDown(int key) const;
+
+  texture_object loadTexture(std::string const& fileName);
 
   // cpu representation of model
   model_object planet_object;

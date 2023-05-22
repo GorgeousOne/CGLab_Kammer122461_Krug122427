@@ -18,14 +18,12 @@ using namespace gl;
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/string_cast.hpp>
-
-#include <iostream>
 
 #include <stb_image.h>
 
 #include <memory>
 #include <string>
+#include <fstream>
 #include "geometry_node.hpp"
 #include "camera_node.hpp"
 #include "shader_attrib.hpp"
@@ -151,6 +149,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["PointLightPos"] = -1;
   m_shaders.at("planet").u_locs["AmbientLight"] = -1;
   m_shaders.at("planet").u_locs["CameraPos"] = -1;
+  m_shaders.at("planet").u_locs["gSampler"] = -1;
   m_shaders.at("planet").u_locs["IsCelEnabled"] = -1;
 
   //stars matrices
@@ -242,6 +241,9 @@ void ApplicationSolar::bindObjModel(model_object &bound, model &model) {
   // second attribute is 3 floats with no offset & stride
   glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, model.vertex_bytes, model.offsets[model::NORMAL]);
 
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, model::TEXCOORD.components, model::TEXCOORD.type, GL_FALSE, model.vertex_bytes, model.offsets[model::TEXCOORD]);
+
   // generate generic buffer
   glGenBuffers(1, &bound.element_BO);
   // bind this as a vertex array buffer containing all attributes
@@ -293,18 +295,20 @@ void ApplicationSolar::bindModel(
 void ApplicationSolar::initializePlanets() {
   // Create the planet data with name, diameter, orbit radius and orbital period in seconds
   m_planetData.emplace("mercury", Planet{.2f, 6, 4, 1, glm::fvec3(0.73, 0.73, 0.73)});
-  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1, glm::fvec3(0.96, 0.64, 0.09)});
-  m_planetData.emplace("earth", Planet{.5, 9, 15, 1, glm::fvec3(0.02, 0.36, 1.00)});
-  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1, glm::fvec3(0.79, 0.05, 0.05)});
-  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 1, glm::fvec3(1.00, 0.28, 0.08)});
-  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 1, glm::fvec3(0.89, 0.67, 0.30)});
-  m_planetData.emplace("uranus", Planet{1, 22, 45, 1, glm::fvec3(0.51, 0.74, 0.41)});
-  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1, glm::fvec3(0.09, 0.14, 0.92)});
-  m_planetData.emplace("moon", Planet{.2f, 1, 3, 1, glm::fvec3(.5f)});
-  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(1000)});
+  m_planetData.emplace("venus", Planet{.3f, 7, 8, 1.5, glm::fvec3(0.96, 0.64, 0.09)});
+  m_planetData.emplace("earth", Planet{.5, 9, 15, 2, glm::fvec3(0.02, 0.36, 1.00)});
+  m_planetData.emplace("mars", Planet{.4f, 11, 17, 1.5, glm::fvec3(0.79, 0.05, 0.05)});
+  m_planetData.emplace("jupiter", Planet{2, 14.5f, 20, 5, glm::fvec3(1.00, 0.28, 0.08)});
+  m_planetData.emplace("saturn", Planet{1.8f, 19, 30, 4, glm::fvec3(0.89, 0.67, 0.30)});
+  m_planetData.emplace("uranus", Planet{1, 22, 45, 3, glm::fvec3(0.51, 0.74, 0.41)});
+  m_planetData.emplace("neptune", Planet{.9f, 24, 60, 3, glm::fvec3(0.09, 0.14, 0.92)});
+  m_planetData.emplace("moon", Planet{.2f, 1, 5, 4, glm::fvec3(.5f)});
+  m_planetData.emplace("sun", Planet{5, 0, 120, 100, glm::fvec3(10000)});
 }
 
 void ApplicationSolar::initializeSceneGraph() {
+  std::string texturePath = m_resource_path + "textures/planets/";
+
   // create camera
   m_cam = std::make_shared<CameraNode>("camera", utils::calculate_projection_matrix(initial_aspect_ratio));
   m_cam->setPos(glm::fvec3(0, 30, 0));
@@ -322,7 +326,7 @@ void ApplicationSolar::initializeSceneGraph() {
       continue;
     }
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<Node> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, "planet");
+    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //give each planet a random rotation at start
@@ -333,7 +337,7 @@ void ApplicationSolar::initializeSceneGraph() {
     planetHolder->setLocalTransform(transform);
     //scale the geometry node to the defined size of the planet
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
-
+    planetGeometry->setTexture(loadTexture(texturePath + name + ".jpg"));
     //add planet to scene graph
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
@@ -348,19 +352,22 @@ void ApplicationSolar::initializeSceneGraph() {
 
   //create sun
   std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 1000);
-  std::shared_ptr<Node> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, m_planetData.at("sun").color, "planet");
+  std::shared_ptr<GeometryNode> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, m_planetData.at("sun").color, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
+  sunGeometry->setTexture(loadTexture(texturePath + "sun.jpg"));
+
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
 
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
-  std::shared_ptr<Node> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, m_planetData.at("moon").color, "planet");
+  std::shared_ptr<GeometryNode> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object2, m_planetData.at("moon").color, "planet");
   std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, glm::vec3(), "wirenet");
 
   Planet moonData = m_planetData.at("moon");
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, -.3f, 0)));
   moonGeometry->setLocalTransform(glm::rotate(glm::mat4(1), glm::radians(20.f), glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1), glm::vec3(moonData.diameter)));
+  moonGeometry->setTexture(loadTexture(texturePath + "moon.jpg"));
   moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
 
   //add moon to scene graph rotating around earth
@@ -370,8 +377,8 @@ void ApplicationSolar::initializeSceneGraph() {
   earth->addChild(moonOrbit);
 }
 
-texture_object loadTexture() {
-  std::string fileName = "asdf";
+texture_object ApplicationSolar::loadTexture(std::string const& fileName) {
+  stbi_set_flip_vertically_on_load(1);
   int width = 0;
   int height = 0;
   int bpp = 0; //bits per pixel, 0 - load all image channels
@@ -389,8 +396,8 @@ texture_object loadTexture() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
   //unbind configurations
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -451,7 +458,7 @@ void ApplicationSolar::keyCallback(int key, int action, int mods) {
 }
 
 //Returns true if a keyboard key is depressed right now
-bool ApplicationSolar::isKeyDown(int key) {
+bool ApplicationSolar::isKeyDown(int key) const {
   return m_keys_down.find(key) != m_keys_down.end();
 }
 

@@ -22,6 +22,8 @@ using namespace gl;
 
 #include <iostream>
 
+#include <stb_image.h>
+
 #include <memory>
 #include <string>
 #include "geometry_node.hpp"
@@ -366,6 +368,34 @@ void ApplicationSolar::initializeSceneGraph() {
   moonHolder->addChild(moonGeometry);
   earth->addChild(moonHolder);
   earth->addChild(moonOrbit);
+}
+
+texture_object loadTexture() {
+  std::string fileName = "asdf";
+  int width = 0;
+  int height = 0;
+  int bpp = 0; //bits per pixel, 0 - load all image channels
+  unsigned char* imageData = stbi_load(fileName.c_str(), &width, &height, &bpp, 0);
+
+  if (!imageData) {
+    printf("Can't load texture from '%s' - %s\n", fileName.c_str(), stbi_failure_reason());
+    exit(0);
+  }
+  texture_object textureObject{};
+  glGenTextures(1, &textureObject.handle);
+  glBindTexture(GL_TEXTURE_2D, textureObject.handle);
+
+  //2d texture, no mip map, internal format on GPU, w, h, border 0, format of original image, it's data type, pointer to texture data
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+  //unbind configurations
+  glBindTexture(GL_TEXTURE_2D, 0);
+  stbi_image_free(imageData);
+  return textureObject;
 }
 
 void ApplicationSolar::moveView(double dTime) {

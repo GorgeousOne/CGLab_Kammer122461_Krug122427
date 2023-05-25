@@ -1,9 +1,14 @@
 #include "camera_node.hpp"
 
-CameraNode::CameraNode(std::string const &name, const glm::mat4 &projectionMatrix) : Node(name),
-                                                                                     m_isPerspective{true},
-                                                                                     m_isEnabled{false},
-                                                                                     m_projectionMatrix{projectionMatrix}
+CameraNode::CameraNode(
+        std::string const &name,
+        glm::mat4 const& projectionMatrix) :
+        Node(name),
+        m_isPerspective{true},
+        m_isEnabled{false},
+        m_projectionMatrix{projectionMatrix},
+        m_yaw{0},
+        m_pitch{0}
 {}
 
 // returns if camera is perspective or orthographic

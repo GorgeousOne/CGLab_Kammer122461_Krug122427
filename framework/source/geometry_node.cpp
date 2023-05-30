@@ -20,6 +20,10 @@ void GeometryNode::setGeometry(model_object const& geometry) {
   m_geometry = geometry;
 }
 
+void GeometryNode::setTexture(texture_object const& texture) {
+  m_texture = texture;
+}
+
 void GeometryNode::render(std::map<std::string, shader_program> const& shaders, glm::mat4 const& view_transform) {
   // bind shader to which to upload uniforms
   glUseProgram(shaders.at(m_shader).handle);
@@ -32,6 +36,11 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   glBindVertexArray(m_geometry.vertex_AO);
 
   if (m_shader == "planet") {
+    //activate texture
+    glActiveTexture(GL_TEXTURE0); //default anyway
+    glBindTexture(GL_TEXTURE_2D, m_texture.handle);
+    glUniform1i(shaders.at(m_shader).u_locs.at("gSampler"), 0);
+
     //extra matrix for normal transformation to keep them orthogonal to surface
     glm::fmat4 normal_matrix = glm::inverseTranspose(model_matrix);
     //also transform normals

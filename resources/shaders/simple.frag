@@ -9,8 +9,11 @@ in float pass_PointLightDist;
 in vec3 pass_ViewDir;
 in vec3 pass_AmbientLight;
 flat in int pass_IsCelEnabled;
+in vec2 pass_TexCoord;
 
 out vec4 out_Color;
+
+uniform sampler2D gSampler;
 
 void main() {
     //amount of light hitting the surface based on the angle between the normal and the light direction
@@ -22,6 +25,9 @@ void main() {
     float specAngle = max(dot(halfDir, pass_Normal), 0.0);
     //specular intensity on the surface
     float specular = pow(specAngle, 50.0);
+
+    //vec3 planetColor = pass_Color;
+    vec3 planetColor = texture2D(gSampler, pass_TexCoord).xyz;
 
     if (pass_IsCelEnabled == 1) {
         specular = round(specular);
@@ -36,9 +42,9 @@ void main() {
         }
     }
     vec3 color =
-        pass_Color * pass_AmbientLight
-        + pass_Color * lambertian * pass_PointLightColor / pass_PointLightDist
-        + vec3(1.0) * specular * pass_PointLightColor / pass_PointLightDist;
+            planetColor * pass_AmbientLight
+            + planetColor * lambertian * pass_PointLightColor / pass_PointLightDist
+            + vec3(1.0) * specular * pass_PointLightColor / pass_PointLightDist;
 
     out_Color = vec4(color / (vec3(1.0) + color), 1.0);
 }

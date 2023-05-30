@@ -3,6 +3,7 @@
 // vertex attributes of VAO
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
+layout(location = 2) in vec2 in_TexCoord;
 
 //Matrix Uniforms as specified with glUniformMatrix4fv
 uniform mat4 ModelMatrix;
@@ -24,6 +25,7 @@ out float pass_PointLightDist;
 out vec3 pass_ViewDir;
 out vec3 pass_AmbientLight;
 flat out int pass_IsCelEnabled;
+out vec2 pass_TexCoord;
 
 void main(void)
 {
@@ -40,8 +42,9 @@ void main(void)
     //square light distance for light falloff
     pass_PointLightDist *= pass_PointLightDist;
 
+    pass_IsCelEnabled = IsCelEnabled;
     pass_PointLightColor = PointLightColor;
     pass_AmbientLight = AmbientLight;
     pass_ViewDir = normalize(CameraPos - worldPos.xyz);
-    pass_IsCelEnabled = IsCelEnabled;
+	pass_TexCoord = in_TexCoord;
 }

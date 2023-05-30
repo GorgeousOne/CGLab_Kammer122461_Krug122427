@@ -149,6 +149,8 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["PointLightPos"] = -1;
   m_shaders.at("planet").u_locs["AmbientLight"] = -1;
   m_shaders.at("planet").u_locs["CameraPos"] = -1;
+  m_shaders.at("planet").u_locs["IsCelEnabled"] = -1;
+
   //stars matrices
   m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
@@ -405,6 +407,16 @@ void ApplicationSolar::keyCallback(int key, int action, int mods) {
     m_keys_down.emplace(key);
   } else if (action == GLFW_RELEASE) {
     m_keys_down.erase(key);
+  }
+
+  if (action == GLFW_PRESS) {
+    if(key == GLFW_KEY_1) {
+      glUseProgram(m_shaders.at("planet").handle);
+      glUniform1i(m_shaders.at("planet").u_locs.at("IsCelEnabled"), 0);
+    } else if (key == GLFW_KEY_2) {
+      glUseProgram(m_shaders.at("planet").handle);
+      glUniform1i(m_shaders.at("planet").u_locs.at("IsCelEnabled"), 1);
+    }
   }
 }
 

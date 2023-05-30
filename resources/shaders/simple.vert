@@ -14,6 +14,7 @@ uniform vec3 PointLightColor;
 uniform vec3 PointLightPos;
 uniform vec3 AmbientLight;
 uniform vec3 CameraPos;
+uniform int IsCelEnabled;
 
 out vec3 pass_Normal;
 out vec3 pass_Color;
@@ -22,6 +23,7 @@ out vec3 pass_PointLightDir;
 out float pass_PointLightDist;
 out vec3 pass_ViewDir;
 out vec3 pass_AmbientLight;
+flat out int pass_IsCelEnabled;
 
 void main(void)
 {
@@ -39,4 +41,5 @@ void main(void)
 	pass_PointLightColor = PointLightColor;
 	pass_AmbientLight = AmbientLight;
 	pass_ViewDir = normalize(CameraPos - worldPos.xyz);
+	pass_IsCelEnabled = IsCelEnabled;
 }

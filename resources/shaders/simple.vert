@@ -28,18 +28,20 @@ flat out int pass_IsCelEnabled;
 void main(void)
 {
 	vec4 worldPos = ModelMatrix * vec4(in_Position, 1.0);
-	gl_Position = (ProjectionMatrix * ViewMatrix) * worldPos;
-//	pass_Normal = (NormalMatrix * vec4(in_Normal, 0.0)).xyz;
-	pass_Normal = normalize((NormalMatrix * vec4(in_Normal, 0.0)).xyz);
-	pass_Color = Color;
+    gl_Position = (ProjectionMatrix * ViewMatrix) * worldPos;
+    pass_Normal = normalize((NormalMatrix * vec4(in_Normal, 0.0)).xyz);
+    pass_Color = Color;
+    
+    // calculate distances
+    vec3 lightDist = PointLightPos - worldPos.xyz;
+    pass_PointLightDist = length(lightDist);
+    //calculate normalized light direction
+    pass_PointLightDir = lightDist / pass_PointLightDist;
+    //square light distance for light falloff
+    pass_PointLightDist *= pass_PointLightDist;
 
-	vec3 lightDist = PointLightPos - worldPos.xyz;
-	pass_PointLightDist = length(lightDist);
-	pass_PointLightDir = lightDist / pass_PointLightDist;
-	pass_PointLightDist *= pass_PointLightDist;
-
-	pass_PointLightColor = PointLightColor;
-	pass_AmbientLight = AmbientLight;
-	pass_ViewDir = normalize(CameraPos - worldPos.xyz);
-	pass_IsCelEnabled = IsCelEnabled;
+    pass_PointLightColor = PointLightColor;
+    pass_AmbientLight = AmbientLight;
+    pass_ViewDir = normalize(CameraPos - worldPos.xyz);
+    pass_IsCelEnabled = IsCelEnabled;
 }

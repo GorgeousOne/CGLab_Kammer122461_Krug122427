@@ -27,6 +27,7 @@ void main() {
         specular = round(specular);
         lambertian = ceil(2 * lambertian) / 2;
 
+        //angle between the view direction and the normal
         float viewAngle = dot(pass_ViewDir, pass_Normal);
 
         if (viewAngle < 0.3) {

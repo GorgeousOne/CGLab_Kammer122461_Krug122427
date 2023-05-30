@@ -9,10 +9,12 @@ void PointLightNode::render(std::map<std::string, shader_program> const &m_shade
   Node::render(m_shaders, view_transform);
 }
 
+// get the color of the light
 glm::vec3 const& PointLightNode::getColor() const {
   return m_lightColor;
 }
 
+// get the intensity of the light
 float PointLightNode::getIntensity() const {
   return m_lightIntensity;
 }

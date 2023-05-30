@@ -36,6 +36,7 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
     glm::fmat4 normal_matrix = glm::inverseTranspose(model_matrix);
     //also transform normals
     glUniformMatrix4fv(shaders.at(m_shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
+    //upload color
     glUniform3fv(shaders.at(m_shader).u_locs.at("Color"), 1, glm::value_ptr(m_color));
   }
   if (m_geometry.has_indices) {

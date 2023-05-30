@@ -299,7 +299,7 @@ void ApplicationSolar::initializePlanets() {
   m_planetData.emplace("uranus", Planet{1, 22, 45, 1, glm::fvec3(0.51, 0.74, 0.41)});
   m_planetData.emplace("neptune", Planet{.9f, 24, 60, 1, glm::fvec3(0.09, 0.14, 0.92)});
   m_planetData.emplace("moon", Planet{.2f, 1, 3, 1, glm::fvec3(.5f)});
-  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(10000)});
+  m_planetData.emplace("sun", Planet{5, 0, 120, 1, glm::fvec3(1000)});
 }
 
 void ApplicationSolar::initializeSceneGraph() {

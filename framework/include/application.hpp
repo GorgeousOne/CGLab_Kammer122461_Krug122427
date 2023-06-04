@@ -61,7 +61,7 @@ template<typename T>
 void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_minor) {
 
     GLFWwindow* window = window_handler::initialize(initial_resolution, ver_major, ver_minor);
-    
+
     std::string resource_path = utils::read_resource_path(argc, argv);
     T* application = new T{resource_path};
 
@@ -76,18 +76,34 @@ void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_m
     // enable multi sampling
     glEnable(GL_MULTISAMPLE);
 
-  // rendering loop
+    // FPS limiting variables
+    const int targetFPS = 144;
+    const double targetFrameTime = 1.0 / targetFPS;
+    double previousTime = glfwGetTime();
+    double lagTime = 0.0;
+
+    // rendering loop
     while (!glfwWindowShouldClose(window)) {
-      // query input
-      glfwPollEvents();
-      // clear buffer
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      // draw geometry
-      application->render();
-      // swap draw buffer to front
-      glfwSwapBuffers(window);
-      // display fps
-      window_handler::show_fps(window);
+      // Calculate delta time and update lag time
+      double currentTime = glfwGetTime();
+      double elapsedTime = currentTime - previousTime;
+      previousTime = currentTime;
+      lagTime += elapsedTime;
+
+      while (lagTime >= targetFrameTime) {
+        // query input
+        glfwPollEvents();
+        // clear buffer
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // draw geometry
+        application->render();
+        // swap draw buffer to front
+        glfwSwapBuffers(window);
+        // display fps
+        window_handler::show_fps(window);
+
+        lagTime -= targetFrameTime;
+      }
     }
 
     delete application;

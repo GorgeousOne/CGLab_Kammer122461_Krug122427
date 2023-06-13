@@ -4,6 +4,7 @@
 #include "utils.hpp"
 #include "shader_loader.hpp"
 #include "model_loader.hpp"
+#include "texture_loader.hpp"
 
 #include <glbinding/gl/gl.h>
 #include <glm/gtc/random.hpp>
@@ -58,6 +59,11 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteBuffers(1, &orbit_object.vertex_BO);
   glDeleteBuffers(1, &orbit_object.element_BO);
   glDeleteVertexArrays(1, &orbit_object.vertex_AO);
+
+  glDeleteBuffers(1, &skybox_object.vertex_BO);
+  glDeleteBuffers(1, &skybox_object.element_BO);
+  glDeleteVertexArrays(1, &skybox_object.vertex_AO);
+
 }
 
 void ApplicationSolar::render() {
@@ -65,7 +71,7 @@ void ApplicationSolar::render() {
   //calculate delta time to last render for FPS independent planet speed
   double dTime = time - m_last_frame;
 
-  rotatePlanets(dTime);
+//  rotatePlanets(dTime);
   moveView(dTime);
 
   glm::fmat4 view_transform = m_cam->getViewTransform();
@@ -139,6 +145,8 @@ void ApplicationSolar::initializeShaderPrograms() {
                                               {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
   m_shaders.emplace("wirenet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
                                               {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
+  m_shaders.emplace("skybox", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
+                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
@@ -156,6 +164,12 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ProjectionMatrix"] = -1;
+
+  m_shaders.at("skybox").u_locs["NormalMatrix"] = -1;
+  m_shaders.at("skybox").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("skybox").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("skybox").u_locs["ProjectionMatrix"] = -1;
+
 }
 
 // load models
@@ -216,6 +230,46 @@ void ApplicationSolar::initializeGeometry() {
   bindModel(orbit_object, orbitVerts, orbitIndices, std::vector<ShaderAttrib>{
       ShaderAttrib{0, 3, 6, 0},
       ShaderAttrib{1, 3, 6, 3}
+  });
+
+  //////////////// Skybox ////////////////
+
+  //make 8 cube vertices
+  std::vector<GLfloat> skyboxVerts = {
+      -1.0f, -1.0f,  1.0f,
+      1.0f, -1.0f,  1.0f,
+      1.0f, -1.0f, -1.0f,
+      -1.0f, -1.0f, -1.0f,
+      -1.0f,  1.0f,  1.0f,
+      1.0f,  1.0f,  1.0f,
+      1.0f,  1.0f, -1.0f,
+      -1.0f,  1.0f, -1.0f
+  };
+
+  //triangulate cube faces
+  std::vector<GLuint> skyboxIndices = {
+      // Right
+      1, 2, 6,
+      6, 5, 1,
+      // Left
+      0, 4, 7,
+      7, 3, 0,
+      // Up
+      4, 5, 6,
+      6, 7, 4,
+      // Down
+      0, 3, 2,
+      2, 1, 0,
+      // Back
+      0, 1, 5,
+      5, 4, 0,
+      // Front
+      3, 7, 6,
+      6, 2, 3
+    };
+
+  bindModel(skybox_object, skyboxVerts, skyboxIndices, std::vector<ShaderAttrib>{
+      ShaderAttrib{0, 3, 6, 0}
   });
 }
 
@@ -307,7 +361,7 @@ void ApplicationSolar::initializePlanets() {
 }
 
 void ApplicationSolar::initializeSceneGraph() {
-  std::string texturePath = m_resource_path + "textures/planets/";
+  std::string planetsTexPath = m_resource_path + "textures/planets/";
 
   // create camera
   m_cam = std::make_shared<CameraNode>("camera", utils::calculate_projection_matrix(initial_aspect_ratio));
@@ -337,7 +391,7 @@ void ApplicationSolar::initializeSceneGraph() {
     planetHolder->setLocalTransform(transform);
     //scale the geometry node to the defined size of the planet
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
-    planetGeometry->setTexture(loadTexture(texturePath + name + ".jpg"));
+    planetGeometry->setTexture(loadTexture(planetsTexPath + name + ".jpg"));
     //add planet to scene graph
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
@@ -354,7 +408,7 @@ void ApplicationSolar::initializeSceneGraph() {
   std::shared_ptr<Node> sunLight = std::make_shared<PointLightNode>("sun-light", glm::fvec3(1), 1000);
   std::shared_ptr<GeometryNode> sunGeometry = std::make_shared<GeometryNode>("sun-geom", planet_object, m_planetData.at("sun").color, "planet");
   sunGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(5)));
-  sunGeometry->setTexture(loadTexture(texturePath + "sun.jpg"));
+  sunGeometry->setTexture(loadTexture(planetsTexPath + "sun.jpg"));
 
   root->addChild(sunLight);
   sunLight->addChild(sunGeometry);
@@ -367,8 +421,14 @@ void ApplicationSolar::initializeSceneGraph() {
   Planet moonData = m_planetData.at("moon");
   moonHolder->setLocalTransform(glm::translate(glm::mat4(1), glm::vec3(moonData.orbitRadius, -.3f, 0)));
   moonGeometry->setLocalTransform(glm::rotate(glm::mat4(1), glm::radians(20.f), glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1), glm::vec3(moonData.diameter)));
-  moonGeometry->setTexture(loadTexture(texturePath + "moon.jpg"));
+  moonGeometry->setTexture(loadTexture(planetsTexPath + "moon.jpg"));
   moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
+
+  //create skyboxes
+  std::shared_ptr<GeometryNode> skybox = std::make_shared<GeometryNode>("skyboxes", skybox_object, glm::vec3(), "skybox");
+  skybox->setTexture(loadCubeMap(m_resource_path + "/textures/skyboxes/nebula"));
+  s
+  root->addChild(skybox);
 
   //add moon to scene graph rotating around earth
   auto earth = root->getChild("earth-hold");
@@ -378,31 +438,33 @@ void ApplicationSolar::initializeSceneGraph() {
 }
 
 texture_object ApplicationSolar::loadTexture(std::string const& fileName) {
-  stbi_set_flip_vertically_on_load(1);
-  int width = 0;
-  int height = 0;
-  int bpp = 0; //bits per pixel, 0 - load all image channels
-  unsigned char* imageData = stbi_load(fileName.c_str(), &width, &height, &bpp, 0);
+  pixel_data pixels = texture_loader::file(fileName);
+  return utils::create_texture_object(pixels);
+}
 
-  if (!imageData) {
-    printf("Can't load texture from '%s' - %s\n", fileName.c_str(), stbi_failure_reason());
-    exit(0);
+texture_object ApplicationSolar::loadCubeMap(const std::string &path) {
+  texture_object textureObj{};
+  glGenTextures(1, &textureObj.handle);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, textureObj.handle);
+
+  std::vector<std::string> faces {
+      "right.png",
+      "left.png",
+      "up.png",
+      "down.png",
+      "front.png",
+      "back.png"
+  };
+  for (unsigned int i = 0; i < faces.size(); i++) {
+    pixel_data pixels = texture_loader::file(path + "/" + faces.at(i));
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, pixels.channels, pixels.width, pixels.height, 0, pixels.channels, pixels.channel_type, pixels.ptr());
   }
-  texture_object textureObject{};
-  glGenTextures(1, &textureObject.handle);
-  glBindTexture(GL_TEXTURE_2D, textureObject.handle);
-
-  //2d texture, no mip map, internal format on GPU, w, h, border 0, format of original image, it's data type, pointer to texture data
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  //unbind configurations
-  glBindTexture(GL_TEXTURE_2D, 0);
-  stbi_image_free(imageData);
-  return textureObject;
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  return textureObj;
 }
 
 void ApplicationSolar::moveView(double dTime) {

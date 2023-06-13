@@ -19,7 +19,19 @@ namespace utils {
 texture_object create_texture_object(pixel_data const& tex) {
   texture_object t_obj{};
 
-  throw std::logic_error("Texture Object creation not implemented yet");
+  glGenTextures(1, &t_obj.handle);
+  glBindTexture(GL_TEXTURE_2D, t_obj.handle);
+
+  //sets interpolation for texture scaling to linear
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  //sets texture wrapping to repeat
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+//  //2d texture, no mip map, internal format on GPU, w, h, border 0, format of original image, it's data type, pointer to texture data
+  std::cout << "channels: " << tex.channels << " t " << tex.channel_type << " w " << tex.width << " h " << tex.height << tex.channels << std::endl;
+  glTexImage2D(GL_TEXTURE_2D, 0, tex.channels, (GLsizei) tex.width, (GLsizei) tex.height, 0, tex.channels, tex.channel_type, tex.ptr());
 
   return t_obj;
 }

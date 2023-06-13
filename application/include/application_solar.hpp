@@ -59,6 +59,7 @@ protected:
   model_object stars_object;
   model_object orbit_object;
   model_object planet_object2;
+  model_object skybox_object;
 
   //pressed keys
   std::set<int> m_keys_down;
@@ -66,6 +67,8 @@ protected:
   std::shared_ptr<CameraNode> m_cam;
   //last time render was called
   double m_last_frame;
+
+  texture_object loadCubeMap(const std::string &fileName);
 };
 
 #endif

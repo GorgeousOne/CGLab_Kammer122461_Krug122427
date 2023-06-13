@@ -32,13 +32,20 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   //upload combined transformation matrices for geometry to the shader
   glUniformMatrix4fv(shaders.at(m_shader).u_locs.at("ModelMatrix"), 1, GL_FALSE, glm::value_ptr(model_matrix));
 
+
   //bind the VAO to draw
   glBindVertexArray(m_geometry.vertex_AO);
 
-  if (m_shader == "planet") {
-    //activate texture
+  if (m_shader == "skybox") {
+    glDepthFunc(GL_EQUAL);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_texture.handle);
+
+  } else if (m_shader == "planet") {
+    //activate 0th texture
     glActiveTexture(GL_TEXTURE0); //default anyway
     glBindTexture(GL_TEXTURE_2D, m_texture.handle);
+    //upload 0th texture to shader
     glUniform1i(shaders.at(m_shader).u_locs.at("gSampler"), 0);
 
     //extra matrix for normal transformation to keep them orthogonal to surface
@@ -53,6 +60,9 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   } else {
     glDrawArrays(m_geometry.draw_mode, 0, m_geometry.num_elements);
   }
-  //continue with default behaviour, render all children
+  if (m_shader == "skybox") {
+    glDepthFunc(GL_LESS);
+  }
+    //continue with default behaviour, render all children
   Node::render(shaders, view_transform);
 }

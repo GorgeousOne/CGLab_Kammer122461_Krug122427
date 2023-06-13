@@ -41,8 +41,14 @@ void main() {
             return;
         }
     }
+    vec3 ambient = pass_AmbientLight;
+
+    //make the sun ✨shine✨
+    if (length(pass_Color) > 10) {
+        ambient += 100;
+    }
     vec3 color =
-            planetColor * pass_AmbientLight
+            planetColor * ambient
             + planetColor * lambertian * pass_PointLightColor / pass_PointLightDist
             + vec3(1.0) * specular * pass_PointLightColor / pass_PointLightDist;
 

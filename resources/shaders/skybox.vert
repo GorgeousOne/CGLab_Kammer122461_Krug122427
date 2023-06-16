@@ -5,9 +5,10 @@ out vec3 TexCoords;
 
 uniform mat4 ViewMatrix;
 uniform mat4 ProjectionMatrix;
+uniform vec3 CameraPos;
 
 void main()
 {
     TexCoords = aPos;
-    gl_Position = ProjectionMatrix * ViewMatrix * vec4(aPos, 1.0);
+    gl_Position = ProjectionMatrix * ViewMatrix * vec4(aPos + CameraPos, 1.0);
 }

@@ -8,6 +8,7 @@
 #include "model.hpp"
 #include "structs.hpp"
 #include "node.hpp"
+#include "geometry_node.hpp"
 #include "scene_graph.hpp"
 #include "planet.hpp"
 #include "shader_attrib.hpp"
@@ -65,6 +66,8 @@ protected:
   std::set<int> m_keys_down;
   std::map<std::string, Planet> m_planetData;
   std::shared_ptr<CameraNode> m_cam;
+  std::shared_ptr<GeometryNode> skybox;
+
   //last time render was called
   double m_last_frame;
 

@@ -84,7 +84,10 @@ void ApplicationSolar::render() {
   glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightColor"), 1, glm::value_ptr(sun->getColor() * sun->getIntensity()));
   glUniform3fv(m_shaders.at("planet").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
 
+  glUseProgram(m_shaders.at("skybox").handle);
+  glUniform3fv(m_shaders.at("skybox").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
 
+  skybox->render(m_shaders, view_transform);
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
 
   m_last_frame = time;
@@ -157,7 +160,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["PointLightPos"] = -1;
   m_shaders.at("planet").u_locs["AmbientLight"] = -1;
   m_shaders.at("planet").u_locs["CameraPos"] = -1;
-  m_shaders.at("planet").u_locs["gSampler"] = -1;
+  m_shaders.at("planet").u_locs["Tex"] = -1;
   m_shaders.at("planet").u_locs["IsCelEnabled"] = -1;
 
   //stars matrices
@@ -165,10 +168,11 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ProjectionMatrix"] = -1;
 
-  m_shaders.at("skybox").u_locs["NormalMatrix"] = -1;
   m_shaders.at("skybox").u_locs["ModelMatrix"] = -1;
   m_shaders.at("skybox").u_locs["ViewMatrix"] = -1;
   m_shaders.at("skybox").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("skybox").u_locs["SkyTex"] = -1;
+  m_shaders.at("skybox").u_locs["CameraPos"] = -1;
 
 }
 
@@ -268,8 +272,10 @@ void ApplicationSolar::initializeGeometry() {
       6, 2, 3
     };
 
+  skybox_object.draw_mode = GL_TRIANGLES;
+  skybox_object.num_elements = 36;
   bindModel(skybox_object, skyboxVerts, skyboxIndices, std::vector<ShaderAttrib>{
-      ShaderAttrib{0, 3, 6, 0}
+      ShaderAttrib{0, 3, 0, 0}
   });
 }
 
@@ -425,7 +431,7 @@ void ApplicationSolar::initializeSceneGraph() {
   moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
 
   //create skyboxes
-  std::shared_ptr<GeometryNode> skybox = std::make_shared<GeometryNode>("skyboxes", skybox_object, glm::vec3(), "skybox");
+  skybox = std::make_shared<GeometryNode>("skyboxes", skybox_object, glm::vec3(), "skybox");
   skybox->setTexture(loadCubeMap(m_resource_path + "/textures/skyboxes/nebula"));
   s
   root->addChild(skybox);
@@ -438,7 +444,7 @@ void ApplicationSolar::initializeSceneGraph() {
 }
 
 texture_object ApplicationSolar::loadTexture(std::string const& fileName) {
-  pixel_data pixels = texture_loader::file(fileName);
+  pixel_data pixels = texture_loader::file(fileName, true);
   return utils::create_texture_object(pixels);
 }
 
@@ -456,7 +462,7 @@ texture_object ApplicationSolar::loadCubeMap(const std::string &path) {
       "back.png"
   };
   for (unsigned int i = 0; i < faces.size(); i++) {
-    pixel_data pixels = texture_loader::file(path + "/" + faces.at(i));
+    pixel_data pixels = texture_loader::file(path + "/" + faces.at(i), true);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, pixels.channels, pixels.width, pixels.height, 0, pixels.channels, pixels.channel_type, pixels.ptr());
   }
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

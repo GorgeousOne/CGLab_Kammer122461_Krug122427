@@ -36,7 +36,6 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   glBindVertexArray(m_geometry.vertex_AO);
 
   if (m_shader == "skybox") {
-    glDepthFunc(GL_EQUAL);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_texture.handle);
     glUniform1i(shaders.at(m_shader).u_locs.at("SkyTex"), 0);
@@ -62,7 +61,6 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   }
   if (m_shader == "skybox") {
     glClear(GL_DEPTH_BUFFER_BIT);
-//    glDepthFunc(GL_LESS);
   }
   //continue with default behaviour, render all children
   Node::render(shaders, view_transform);

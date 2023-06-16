@@ -240,36 +240,37 @@ void ApplicationSolar::initializeGeometry() {
 
   //make 8 cube vertices
   std::vector<GLfloat> skyboxVerts = {
-      -1.0f, -1.0f,  1.0f,
-      1.0f, -1.0f,  1.0f,
-      1.0f, -1.0f, -1.0f,
       -1.0f, -1.0f, -1.0f,
-      -1.0f,  1.0f,  1.0f,
-      1.0f,  1.0f,  1.0f,
+      1.0f, -1.0f, -1.0f,
+      1.0f, -1.0f,  1.0f,
+      -1.0f, -1.0f,  1.0f,
+      -1.0f,  1.0f, -1.0f,
       1.0f,  1.0f, -1.0f,
-      -1.0f,  1.0f, -1.0f
+      1.0f,  1.0f,  1.0f
+      -1.0f,  1.0f,  1.0f,
   };
 
   //triangulate cube faces
+  //order and rotation do not seem to effect image rotation :shrug:
   std::vector<GLuint> skyboxIndices = {
-      // Right
-      1, 2, 6,
+      // +X Right
       6, 5, 1,
-      // Left
-      0, 4, 7,
-      7, 3, 0,
-      // Up
+      6, 1, 2,
+      // -X Left
+      4, 7, 3,
+      4, 3, 0,
+      // +Y Up
       4, 5, 6,
       6, 7, 4,
-      // Down
+      // -Y Down
       0, 3, 2,
       2, 1, 0,
-      // Back
-      0, 1, 5,
+      // +Z Back
+      7, 6, 2,
+      7, 2, 3,
+      // -Z Front
       5, 4, 0,
-      // Front
-      3, 7, 6,
-      6, 2, 3
+      5, 0, 1
     };
 
   skybox_object.draw_mode = GL_TRIANGLES;
@@ -433,8 +434,6 @@ void ApplicationSolar::initializeSceneGraph() {
   //create skyboxes
   skybox = std::make_shared<GeometryNode>("skyboxes", skybox_object, glm::vec3(), "skybox");
   skybox->setTexture(loadCubeMap(m_resource_path + "/textures/skyboxes/nebula"));
-  s
-  root->addChild(skybox);
 
   //add moon to scene graph rotating around earth
   auto earth = root->getChild("earth-hold");
@@ -444,7 +443,7 @@ void ApplicationSolar::initializeSceneGraph() {
 }
 
 texture_object ApplicationSolar::loadTexture(std::string const& fileName) {
-  pixel_data pixels = texture_loader::file(fileName, true);
+  pixel_data pixels = texture_loader::file(fileName, false);
   return utils::create_texture_object(pixels);
 }
 
@@ -456,13 +455,13 @@ texture_object ApplicationSolar::loadCubeMap(const std::string &path) {
   std::vector<std::string> faces {
       "right.png",
       "left.png",
-      "up.png",
       "down.png",
+      "up.png",
       "front.png",
-      "back.png"
+      "back.png",
   };
   for (unsigned int i = 0; i < faces.size(); i++) {
-    pixel_data pixels = texture_loader::file(path + "/" + faces.at(i), true);
+    pixel_data pixels = texture_loader::file(path + "/" + faces.at(i), false);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, pixels.channels, pixels.width, pixels.height, 0, pixels.channels, pixels.channel_type, pixels.ptr());
   }
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

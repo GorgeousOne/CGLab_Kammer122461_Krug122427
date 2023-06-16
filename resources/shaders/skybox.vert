@@ -7,8 +7,9 @@ uniform mat4 ViewMatrix;
 uniform mat4 ProjectionMatrix;
 uniform vec3 CameraPos;
 
-void main()
-{
-    TexCoords = aPos;
+void main() {
+    //texture coordinates somehow need to be mirrored except along z axis
+    TexCoords = -aPos;
+    TexCoords.z *= -1;
     gl_Position = ProjectionMatrix * ViewMatrix * vec4(aPos + CameraPos, 1.0);
 }

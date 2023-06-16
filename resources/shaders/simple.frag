@@ -13,7 +13,7 @@ in vec2 pass_TexCoord;
 
 out vec4 out_Color;
 
-uniform sampler2D gSampler;
+uniform sampler2D Tex;
 
 void main() {
     //amount of light hitting the surface based on the angle between the normal and the light direction
@@ -27,7 +27,7 @@ void main() {
     float specular = pow(specAngle, 50.0);
 
     //vec3 planetColor = pass_Color;
-    vec3 planetColor = texture2D(gSampler, pass_TexCoord).xyz;
+    vec3 planetColor = texture2D(Tex, pass_TexCoord).xyz;
 
     if (pass_IsCelEnabled == 1) {
         specular = round(specular);
@@ -41,8 +41,14 @@ void main() {
             return;
         }
     }
+    vec3 ambient = pass_AmbientLight;
+
+    //make the sun ✨shine✨
+    if (length(pass_Color) > 10) {
+        ambient += 100;
+    }
     vec3 color =
-            planetColor * pass_AmbientLight
+            planetColor * ambient
             + planetColor * lambertian * pass_PointLightColor / pass_PointLightDist
             + vec3(1.0) * specular * pass_PointLightColor / pass_PointLightDist;
 

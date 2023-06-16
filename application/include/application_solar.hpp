@@ -8,6 +8,7 @@
 #include "model.hpp"
 #include "structs.hpp"
 #include "node.hpp"
+#include "geometry_node.hpp"
 #include "scene_graph.hpp"
 #include "planet.hpp"
 #include "shader_attrib.hpp"
@@ -59,13 +60,18 @@ protected:
   model_object stars_object;
   model_object orbit_object;
   model_object planet_object2;
+  model_object skybox_object;
 
   //pressed keys
   std::set<int> m_keys_down;
   std::map<std::string, Planet> m_planetData;
   std::shared_ptr<CameraNode> m_cam;
+  std::shared_ptr<GeometryNode> skybox;
+
   //last time render was called
   double m_last_frame;
+
+  texture_object loadCubeMap(const std::string &fileName);
 };
 
 #endif

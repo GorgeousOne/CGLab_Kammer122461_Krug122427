@@ -16,7 +16,7 @@
 #include <stdexcept> 
 
 namespace texture_loader {
-pixel_data file(std::string const& file_name) {
+pixel_data file(std::string const& file_name, bool flipVertically) {
   // match to opengl representation
   stbi_set_flip_vertically_on_load(true);
 
@@ -24,7 +24,7 @@ pixel_data file(std::string const& file_name) {
   int width = 0;
   int height = 0;
   int format = STBI_default;
-  data_ptr = stbi_load(file_name.c_str(), &width, &height, &format, STBI_rgb_alpha);
+  data_ptr = stbi_load(file_name.c_str(), &width, &height, &format, STBI_default);
 
   if(!data_ptr) {
     throw std::logic_error(std::string{"stb_image: "} + stbi_failure_reason());

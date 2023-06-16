@@ -71,7 +71,7 @@ void ApplicationSolar::render() {
   //calculate delta time to last render for FPS independent planet speed
   double dTime = time - m_last_frame;
 
-//  rotatePlanets(dTime);
+  rotatePlanets(dTime);
   moveView(dTime);
 
   glm::fmat4 view_transform = m_cam->getViewTransform();
@@ -240,41 +240,43 @@ void ApplicationSolar::initializeGeometry() {
 
   //make 8 cube vertices
   std::vector<GLfloat> skyboxVerts = {
-      -1.0f, -1.0f, -1.0f,
-      1.0f, -1.0f, -1.0f,
-      1.0f, -1.0f,  1.0f,
-      -1.0f, -1.0f,  1.0f,
-      -1.0f,  1.0f, -1.0f,
-      1.0f,  1.0f, -1.0f,
-      1.0f,  1.0f,  1.0f
-      -1.0f,  1.0f,  1.0f,
+      //-Z back face
+      -1.0f,  1.0f, -1.0f, //0
+       1.0f,  1.0f, -1.0f, //1
+      -1.0f, -1.0f, -1.0f, //2
+       1.0f, -1.0f, -1.0f, //3
+       //+Z front face
+      -1.0f,  1.0f, 1.0f, //4
+       1.0f,  1.0f, 1.0f, //5
+      -1.0f, -1.0f, 1.0f, //6
+       1.0f, -1.0f, 1.0f, //7
   };
 
   //triangulate cube faces
   //order and rotation do not seem to effect image rotation :shrug:
   std::vector<GLuint> skyboxIndices = {
-      // +X Right
-      6, 5, 1,
-      6, 1, 2,
-      // -X Left
-      4, 7, 3,
-      4, 3, 0,
-      // +Y Up
-      4, 5, 6,
-      6, 7, 4,
-      // -Y Down
-      0, 3, 2,
-      2, 1, 0,
-      // +Z Back
-      7, 6, 2,
-      7, 2, 3,
-      // -Z Front
-      5, 4, 0,
-      5, 0, 1
-    };
+      // +X right face
+      1, 5, 3,
+      3, 5, 7,
+      // -X left face
+      4, 0, 6,
+      6, 0, 2,
+      // +Y top face
+      4, 5, 0,
+      0, 5, 1,
+      // -Y down face
+      6, 7, 2,
+      2, 7, 3,
+      // +Z front face
+      5, 4, 7,
+      7, 4, 6,
+      // -Z back face
+      0, 1, 2,
+      2, 1, 3,
+  };
 
   skybox_object.draw_mode = GL_TRIANGLES;
-  skybox_object.num_elements = 36;
+  skybox_object.num_elements = (GLsizei) skyboxIndices.size();
   bindModel(skybox_object, skyboxVerts, skyboxIndices, std::vector<ShaderAttrib>{
       ShaderAttrib{0, 3, 0, 0}
   });

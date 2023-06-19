@@ -33,9 +33,9 @@ using namespace gl;
 ApplicationSolar::ApplicationSolar(std::string const &resource_path)
     : Application{resource_path},
       planet_object{},
+      planet_object2{},
       stars_object{},
       orbit_object{},
-      planet_object2{},
       m_keys_down{},
       m_planetData{},
       m_cam{nullptr},
@@ -235,6 +235,50 @@ void ApplicationSolar::initializeGeometry() {
       ShaderAttrib{0, 3, 6, 0},
       ShaderAttrib{1, 3, 6, 3}
   });
+  //////////////// Saturn Rings ////////////////
+
+  std::vector<GLfloat> ringVerts{};
+  std::vector<GLuint> ringIndices{};
+  float ringsScale = 1.5f;
+
+  for (int i = 0; i <= orbitVertCount; ++i) {
+    float phi = TWO_PI * i / orbitVertCount;
+    //inner vertex
+    //xyz
+    ringVerts.emplace_back(glm::cos(phi));
+    ringVerts.emplace_back(0);
+    ringVerts.emplace_back(glm::sin(phi));
+    //normal
+    ringVerts.emplace_back(0);
+    ringVerts.emplace_back(1);
+    ringVerts.emplace_back(0);
+    //uv somehow off by a few pixels
+    ringVerts.emplace_back(0.1);
+    ringVerts.emplace_back(0.5);
+    //index
+    ringIndices.emplace_back(2 * i);
+
+    //outer vertex
+    ringVerts.emplace_back(glm::cos(phi) * ringsScale);
+    ringVerts.emplace_back(0);
+    ringVerts.emplace_back(glm::sin(phi) * ringsScale);
+    //normal
+    ringVerts.emplace_back(0);
+    ringVerts.emplace_back(1);
+    ringVerts.emplace_back(0);
+    //uv
+    ringVerts.emplace_back(0.9);
+    ringVerts.emplace_back(0.5);
+    //index
+    ringIndices.emplace_back(2 * i + 1);
+  }
+  saturn_rings.draw_mode = GL_TRIANGLE_STRIP;
+  saturn_rings.num_elements = (GLsizei) ringIndices.size();
+  bindModel(saturn_rings, ringVerts, ringIndices, std::vector<ShaderAttrib>{
+      ShaderAttrib{0, 3, 8, 0},
+      ShaderAttrib{1, 3, 8, 3},
+      ShaderAttrib{2, 2, 8, 6}
+  });
 
   //////////////// Skybox ////////////////
 
@@ -388,26 +432,34 @@ void ApplicationSolar::initializeSceneGraph() {
     if (name == "moon" || name == "sun") {
       continue;
     }
+    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, planet.color, "wirenet");
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
     std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //give each planet a random rotation at start
     transform = glm::rotate(transform, glm::linearRand(0.f, 2 * glm::pi<float>()), glm::fvec3(0, 1, 0));
-    //translate each planet from the sun away
+    //translate each planet away from the sun
     transform = glm::translate(transform, glm::vec3(planet.orbitRadius, 0, 0));
-    //update the local transform of the planet holder
     planetHolder->setLocalTransform(transform);
+
     //scale the geometry node to the defined size of the planet
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
     planetGeometry->setTexture(loadTexture(planetsTexPath + name + ".jpg"));
+
+    planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
+
     //add planet to scene graph
     root->addChild(planetHolder);
+    root->addChild(planetOrbit);
     planetHolder->addChild(planetGeometry);
 
-    std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, planet.color, "wirenet");
-    planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
-    root->addChild(planetOrbit);
+    if (name == "saturn") {
+      std::shared_ptr<GeometryNode> rings = std::make_shared<GeometryNode>(name + "-rings", saturn_rings, planet.color, "planet");
+      rings->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(0.5f * planet.diameter + 0.3)));
+      rings->setTexture(loadTexture(planetsTexPath + name + "_ring.jpg"));
+      planetGeometry->addChild(rings);
+    }
   }
   //create stars
   std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, glm::vec3(), "wirenet");

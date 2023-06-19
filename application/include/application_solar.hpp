@@ -57,9 +57,10 @@ protected:
 
   // cpu representation of model
   model_object planet_object;
+  model_object planet_object2;
   model_object stars_object;
   model_object orbit_object;
-  model_object planet_object2;
+  model_object saturn_rings;
   model_object skybox_object;
 
   //pressed keys

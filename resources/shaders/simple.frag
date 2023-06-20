@@ -1,4 +1,4 @@
-#version 150
+#version 330 core
 
 in vec3 pass_Normal;
 in vec3 pass_Color;

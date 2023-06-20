@@ -77,13 +77,6 @@ void ApplicationSolar::render() {
   glm::fmat4 view_transform = m_cam->getViewTransform();
   uploadUniforms();
 
-  glUseProgram(m_shaders.at("planet").handle);
-  glUniform3fv(m_shaders.at("planet").u_locs.at("AmbientLight"), 1, glm::value_ptr(glm::fvec3(.5f)));
-  std::shared_ptr<PointLightNode> sun = std::dynamic_pointer_cast<PointLightNode>(SceneGraph::get().getRoot()->getChild("sun-light"));
-  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightPos"), 1, glm::value_ptr(glm::fvec3(sun->getWorldTransform()[3])));
-  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightColor"), 1, glm::value_ptr(sun->getColor() * sun->getIntensity()));
-  glUniform3fv(m_shaders.at("planet").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
-
   glUseProgram(m_shaders.at("skybox").handle);
   glUniform3fv(m_shaders.at("skybox").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
 
@@ -126,6 +119,23 @@ void ApplicationSolar::rotatePlanets(double dTime) {
 
 // upload uniform values to new locations
 void ApplicationSolar::uploadUniforms() {
+  std::shared_ptr<PointLightNode> sun = std::dynamic_pointer_cast<PointLightNode>(SceneGraph::get().getRoot()->getChild("sun-light"));
+  glm::fvec3 sunPos = glm::fvec3(sun->getWorldTransform()[3]);
+  glm::fvec3 sunColor = sun->getColor() * sun->getIntensity();
+  glm::fvec3 ambient = glm::fvec3(.5f);
+
+  glUseProgram(m_shaders.at("planet").handle);
+  glUniform3fv(m_shaders.at("planet").u_locs.at("AmbientLight"), 1, glm::value_ptr(ambient));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightPos"), 1, glm::value_ptr(sunPos));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("PointLightColor"), 1, glm::value_ptr(sunColor));
+  glUniform3fv(m_shaders.at("planet").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
+
+  glUseProgram(m_shaders.at("normal").handle);
+  glUniform3fv(m_shaders.at("normal").u_locs.at("AmbientLight"), 1, glm::value_ptr(ambient));
+  glUniform3fv(m_shaders.at("normal").u_locs.at("PointLightPos"), 1, glm::value_ptr(sunPos));
+  glUniform3fv(m_shaders.at("normal").u_locs.at("PointLightColor"), 1, glm::value_ptr(sunColor));
+  glUniform3fv(m_shaders.at("normal").u_locs.at("CameraPos"), 1, glm::value_ptr(m_cam->getPos()));
+
   glm::fmat4 projection_transform = m_cam->getProjectionMatrix();
   glm::fmat4 view_transform = m_cam->getViewTransform();
 
@@ -144,12 +154,19 @@ void ApplicationSolar::uploadUniforms() {
 // load shader sources
 void ApplicationSolar::initializeShaderPrograms() {
   // store shader program objects in container
-  m_shaders.emplace("planet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
-                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
-  m_shaders.emplace("wirenet", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
-                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
-  m_shaders.emplace("skybox", shader_program{{{GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
-                                              {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
+  m_shaders.emplace("planet", shader_program{{
+    {GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
+    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+  m_shaders.emplace("normal", shader_program{{
+    {GL_VERTEX_SHADER, m_resource_path + "shaders/normal.vert"},
+    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/normal.frag"}}});
+  m_shaders.emplace("wirenet", shader_program{{
+    {GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
+    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
+  m_shaders.emplace("skybox", shader_program{{
+    {GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
+    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
+
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
@@ -163,6 +180,20 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["Tex"] = -1;
   m_shaders.at("planet").u_locs["IsCelEnabled"] = -1;
 
+    // request uniform locations for shader program
+  m_shaders.at("normal").u_locs["NormalMatrix"] = -1;
+  m_shaders.at("normal").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("normal").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("normal").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("normal").u_locs["Color"] = -1;
+  m_shaders.at("normal").u_locs["PointLightColor"] = -1;
+  m_shaders.at("normal").u_locs["PointLightPos"] = -1;
+  m_shaders.at("normal").u_locs["AmbientLight"] = -1;
+  m_shaders.at("normal").u_locs["CameraPos"] = -1;
+  m_shaders.at("normal").u_locs["Tex"] = -1;
+  m_shaders.at("normal").u_locs["NormalMap"] = -1;
+  m_shaders.at("normal").u_locs["IsCelEnabled"] = -1;
+
   //stars matrices
   m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
@@ -173,7 +204,6 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("skybox").u_locs["ProjectionMatrix"] = -1;
   m_shaders.at("skybox").u_locs["SkyTex"] = -1;
   m_shaders.at("skybox").u_locs["CameraPos"] = -1;
-
 }
 
 // load models
@@ -418,7 +448,7 @@ void ApplicationSolar::initializeSceneGraph() {
 
   // create camera
   m_cam = std::make_shared<CameraNode>("camera", utils::calculate_projection_matrix(initial_aspect_ratio));
-  m_cam->setPos(glm::fvec3(0, 30, 0));
+  m_cam->setPos(glm::fvec3(0, 10, 0));
   m_cam->setPitch(-.5f * glm::pi<float>());
 
   // Create the sun GeometryNode
@@ -434,7 +464,7 @@ void ApplicationSolar::initializeSceneGraph() {
     }
     std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, planet.color, "wirenet");
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, "planet");
+    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, planet.color, name == "earth" ? "normal" : "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //give each planet a random rotation at start
@@ -445,9 +475,13 @@ void ApplicationSolar::initializeSceneGraph() {
 
     //scale the geometry node to the defined size of the planet
     planetGeometry->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.diameter)));
+    planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
+
     planetGeometry->setTexture(loadTexture(planetsTexPath + name + ".jpg"));
 
-    planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
+    if (name == "earth") {
+      planetGeometry->setNormalMap(loadTexture(planetsTexPath + "earth_normal.jpg"));
+    }
 
     //add planet to scene graph
     root->addChild(planetHolder);
@@ -461,6 +495,7 @@ void ApplicationSolar::initializeSceneGraph() {
       planetGeometry->addChild(rings);
     }
   }
+
   //create stars
   std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, glm::vec3(), "wirenet");
   root->addChild(stars);

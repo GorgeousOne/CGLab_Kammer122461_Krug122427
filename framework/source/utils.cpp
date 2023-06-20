@@ -29,8 +29,7 @@ texture_object create_texture_object(pixel_data const& tex) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-//  //2d texture, no mip map, internal format on GPU, w, h, border 0, format of original image, it's data type, pointer to texture data
-  std::cout << "channels: " << tex.channels << " t " << tex.channel_type << " w " << tex.width << " h " << tex.height << tex.channels << std::endl;
+  //2d texture, no mip map, internal format on GPU, w, h, border 0, format of original image, it's data type, pointer to texture data
   glTexImage2D(GL_TEXTURE_2D, 0, tex.channels, (GLsizei) tex.width, (GLsizei) tex.height, 0, tex.channels, tex.channel_type, tex.ptr());
 
   return t_obj;

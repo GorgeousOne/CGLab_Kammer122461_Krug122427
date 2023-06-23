@@ -17,6 +17,8 @@ private:
   model_object m_geometry;
   texture_object m_texture;
   texture_object m_normalMap;
+  bool m_hasNormalMap;
+
   glm::fvec3 m_color;
   std::string m_shader;
 };

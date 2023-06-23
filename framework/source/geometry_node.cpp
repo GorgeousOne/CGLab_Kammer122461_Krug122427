@@ -7,6 +7,9 @@
 GeometryNode::GeometryNode(std::string const &name, model_object& geometry, glm::fvec3 color, std::string const& shader) :
     Node(name),
     m_geometry{geometry},
+    m_texture{},
+    m_normalMap{},
+    m_hasNormalMap{false},
     m_color{color},
     m_shader{shader} {}
 
@@ -26,6 +29,7 @@ void GeometryNode::setTexture(texture_object const& texture) {
 
 void GeometryNode::setNormalMap(texture_object const& normalMap) {
   m_normalMap = normalMap;
+  m_hasNormalMap = true;
 }
 
 void GeometryNode::render(std::map<std::string, shader_program> const& shaders, glm::mat4 const& view_transform) {
@@ -39,15 +43,10 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
   //bind the VAO to draw
   glBindVertexArray(m_geometry.vertex_AO);
 
-  if (m_shader == "skybox") {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, m_texture.handle);
-    glUniform1i(shaders.at(m_shader).u_locs.at("SkyTex"), 0);
-
-  } else if (m_shader == "planet" || m_shader == "normal") {
-    //activate 0th texture
+  if (m_shader == "planet") {
+    //activate 0th texture0
     glActiveTexture(GL_TEXTURE0); //default anyway
-    glBindTexture(GL_TEXTURE_2D, m_texture.handle);
+    glBindTexture(m_texture.target, m_texture.handle);
     //upload 0th texture to shader
     glUniform1i(shaders.at(m_shader).u_locs.at("Tex"), 0);
 
@@ -57,8 +56,10 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders, 
     glUniformMatrix4fv(shaders.at(m_shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
     //upload color
     glUniform3fv(shaders.at(m_shader).u_locs.at("Color"), 1, glm::value_ptr(m_color));
+
+    glUniform1i(shaders.at(m_shader).u_locs.at("IsNormalMapEnabled"), m_hasNormalMap ? 1 : 0);
   }
-  if (m_shader == "normal") {
+  if (m_hasNormalMap) {
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, m_normalMap.handle);
     glUniform1i(shaders.at(m_shader).u_locs.at("NormalMap"), 1);

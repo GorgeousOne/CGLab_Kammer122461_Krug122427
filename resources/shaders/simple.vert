@@ -14,8 +14,10 @@ uniform vec3 PointLightColor;
 uniform vec3 PointLightPos;
 uniform vec3 AmbientLight;
 uniform vec3 CameraPos;
-uniform int IsCelEnabled;
+uniform bool IsCelEnabled;
+uniform bool IsNormalMapEnabled;
 
+out vec3 pass_VertexPos;
 out vec3 pass_Normal;
 out vec3 pass_Color;
 out vec3 pass_PointLightColor;
@@ -23,13 +25,13 @@ out vec3 pass_PointLightDir;
 out float pass_PointLightDist;
 out vec3 pass_ViewDir;
 out vec3 pass_AmbientLight;
-flat out int pass_IsCelEnabled;
 out vec2 pass_TexCoord;
 
 void main(void)
 {
 	vec4 worldPos = ModelMatrix * vec4(in_Position, 1.0);
     gl_Position = (ProjectionMatrix * ViewMatrix) * worldPos;
+    pass_VertexPos = worldPos.xyz;
     pass_Normal = normalize((NormalMatrix * vec4(in_Normal, 0.0)).xyz);
     pass_Color = Color;
     
@@ -41,7 +43,6 @@ void main(void)
     //square light distance for light falloff
     pass_PointLightDist *= pass_PointLightDist;
 
-    pass_IsCelEnabled = IsCelEnabled;
     pass_PointLightColor = PointLightColor;
     pass_AmbientLight = AmbientLight;
     pass_ViewDir = normalize(CameraPos - worldPos.xyz);

@@ -73,8 +73,6 @@ void Application::run(int argc, char* argv[], unsigned ver_major, unsigned ver_m
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    // enable multi sampling
-    glEnable(GL_MULTISAMPLE);
 
     // FPS limiting variables
     const int targetFPS = 144;

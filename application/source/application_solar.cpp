@@ -43,6 +43,7 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
   initializePlanets();
   initializeGeometry();
   initializeShaderPrograms();
+  initializeFrameBuffers();
   initializeSceneGraph();
   SceneGraph::get().printGraph(std::cout);
 }
@@ -76,11 +77,13 @@ void ApplicationSolar::render() {
 
   glm::fmat4 view_transform = m_cam->getViewTransform();
   uploadUniforms();
+  enableMsaaBuffer();
 
   glUseProgram(m_shaders.at("skybox").handle);
   skybox->render(m_shaders, view_transform);
   SceneGraph::get().getRoot()->render(m_shaders, view_transform);
 
+  renderFrameBuffer();
   m_last_frame = time;
 }
 
@@ -113,6 +116,55 @@ void ApplicationSolar::rotatePlanets(double dTime) {
     //apply rotation to local transform of planet
     node->setLocalTransform(rotation * node->getLocalTransform());
   });
+}
+
+void ApplicationSolar::enableMsaaBuffer() {
+  //activate frame buffer
+  glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
+  glEnable(GL_DEPTH_TEST);
+  //clear buffer
+  glClearColor(0.f, 0.f, 0.f, 1.f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void ApplicationSolar::copyMsaaBuffer() {
+  int width = initial_resolution[0];
+  int height = initial_resolution[1];
+
+  // bind multisampled buffer for reading and normal buffer for writing
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, msaa_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, post_process_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glDrawBuffer(GL_COLOR_ATTACHMENT0);
+  // blit color buffer
+  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+  //blit lighting buffer
+  glReadBuffer(GL_COLOR_ATTACHMENT1);
+  glDrawBuffer(GL_COLOR_ATTACHMENT1);
+  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+}
+
+void ApplicationSolar::renderFrameBuffer() {
+  copyMsaaBuffer();
+
+  // Bind the default framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDisable(GL_DEPTH_TEST);
+
+  // Use the framebuffer shader program
+  glUseProgram(m_shaders.at("post_process").handle);
+  // Bind the vertex array object for rendering the screen quad
+  glBindVertexArray(screen_quad_object.vertex_AO);
+
+  // Bind the post-processing texture to shader
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, pp_color_texture);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, pp_depth_texture);
+
+  // Render the quad with the post-processing texture over the entire screen
+  glDrawArrays(screen_quad_object.draw_mode, 0, screen_quad_object.num_elements);
 }
 
 // upload uniform values to new locations
@@ -158,6 +210,9 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.emplace("skybox", shader_program{{
     {GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
     {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
+  m_shaders.emplace("post_process", shader_program{{
+    {GL_VERTEX_SHADER, m_resource_path + "shaders/post_process.vert"},
+    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/post_process.frag"}}});
 
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
@@ -184,6 +239,99 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("skybox").u_locs["ProjectionMatrix"] = -1;
   m_shaders.at("skybox").u_locs["Tex"] = -1;
   m_shaders.at("skybox").u_locs["CameraPos"] = -1;
+
+  m_shaders.at("post_process").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("post_process").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("post_process").u_locs["ColorTex"] = -1;
+  m_shaders.at("post_process").u_locs["DepthTex"] = -1;
+}
+
+void ApplicationSolar::initializeFrameBuffers() {
+  glGenFramebuffers(1, &msaa_fbo);
+  glGenFramebuffers(1, &post_process_fbo);
+
+  glGenTextures(1, &color_texture);
+  glGenTextures(1, &depth_texture);
+  glGenTextures(1, &pp_color_texture);
+  glGenTextures(1, &pp_depth_texture);
+
+  updateBufferTextures(initial_resolution[0], initial_resolution[1]);
+
+  //create quad covering window to render framebuffer to
+  float rectVertices[] = {
+      //coords  //texCoords
+      1.f, -1.f, 1.f, 0.f,
+      -1.f, -1.f, 0.f, 0.f,
+      -1.f, 1.f, 0.f, 1.f,
+
+      1.f, 1.f, 1.f, 1.f,
+      1.f, -1.f, 1.f, 0.f,
+      -1.f, 1.f, 0.f, 1.f
+  };
+  glGenVertexArrays(1, &screen_quad_object.vertex_AO);
+  glGenBuffers(1, &screen_quad_object.vertex_BO);
+  glBindVertexArray(screen_quad_object.vertex_AO);
+  glBindBuffer(GL_ARRAY_BUFFER, screen_quad_object.vertex_BO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(rectVertices), &rectVertices, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+  screen_quad_object.num_elements = 6;
+  screen_quad_object.draw_mode = GL_TRIANGLES;
+}
+
+void ApplicationSolar::updateBufferTextures(int width, int height) {
+
+  // Create multisample frame buffer object
+  glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
+  // Create frame buffer texture
+  createBufferTexture(color_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT0);
+  // add depth texture
+  createBufferTexture(depth_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
+
+  // Check framebuffer completeness
+  auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
+    std::cout << "Framebuffer error: " << fboStatus << std::endl;
+  }
+
+  //create normal buffer with same components for post-processing
+  glBindFramebuffer(GL_FRAMEBUFFER, post_process_fbo);
+  createBufferTexture(pp_color_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT0);
+  createBufferTexture(pp_depth_texture, width, height, GL_TEXTURE_2D, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
+
+  fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
+    std::cout << "Post-processing framebuffer error: " << fboStatus << std::endl;
+  }
+}
+
+void ApplicationSolar::createBufferTexture(
+    GLuint texture,
+    int width,
+    int height,
+    GLenum target,
+    GLenum format,
+    GLenum attachment) {
+  // Create frame buffer texture
+  glBindTexture(target, texture);
+
+  if (target == GL_TEXTURE_2D_MULTISAMPLE) {
+    glTexImage2DMultisample(target, 8, format, width, height, GL_TRUE);
+    //  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGB, width, height, GL_TRUE);
+  } else {
+    glTexImage2D(target, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, NULL);
+  }
+  // use nearest pixel when up/down scaling
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  // Prevent edge bleeding
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // Attach texture to frame buffer
+  glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, target, texture, 0);
 }
 
 // load models

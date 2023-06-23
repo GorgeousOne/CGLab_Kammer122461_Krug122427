@@ -1,5 +1,5 @@
-#version 150
-#extension GL_ARB_explicit_attrib_location : require
+#version 330 core
+
 // glVertexAttribPointer mapped positions to first
 layout(location = 0) in vec3 in_Position;
 // glVertexAttribPointer mapped color  to second attribute 

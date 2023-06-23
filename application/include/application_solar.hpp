@@ -55,7 +55,31 @@ protected:
 
   texture_object loadTexture(std::string const& fileName);
 
+  void initializeFrameBuffers();
+  void updateBufferTextures(int width, int height);
+  void enableMsaaBuffer();
+  void copyMsaaBuffer();
+  void renderFrameBuffer();
+  void createBufferTexture(
+      GLuint texture,
+      int width,
+      int height,
+      GLenum target,
+      GLenum format,
+      GLenum attachment);
+
+  unsigned int msaa_fbo;
+  unsigned int color_texture;
+  unsigned int depth_texture;
+  unsigned int light_texture;
+
+  unsigned int post_process_fbo;
+  unsigned int pp_color_texture;
+  unsigned int pp_depth_texture;
+  unsigned int pp_light_texture;
+
   // cpu representation of model
+  model_object screen_quad_object;
   model_object planet_object;
   model_object planet_object2;
   model_object stars_object;

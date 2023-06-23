@@ -11,7 +11,8 @@ in vec3 pass_ViewDir;
 in vec3 pass_AmbientLight;
 in vec2 pass_TexCoord;
 
-out vec4 out_Color;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 LightEmitColor;
 
 uniform sampler2D Tex;
 uniform sampler2D NormalMap;
@@ -67,7 +68,8 @@ void main() {
         float viewAngle = dot(pass_ViewDir, normal);
 
         if (viewAngle < 0.3) {
-            out_Color = vec4(pass_Color, 1);
+            FragColor = vec4(pass_Color, 1);
+            LightEmitColor = vec4(0, 0, 0, 1);
             return;
         }
     }
@@ -82,5 +84,14 @@ void main() {
             + planetColor * lambertian * pass_PointLightColor / pass_PointLightDist
             + vec3(1.0) * specular * pass_PointLightColor / pass_PointLightDist;
 
-    out_Color = vec4(color / (vec3(1.0) + color), 1.0);
+    FragColor = vec4(color / (vec3(1.0) + color), 1.0);
+
+    //make sun visible in light only texture
+    float luminance = dot(pass_Color, vec3(0.2125, 0.7152, 0.0722));
+
+    if (luminance > 100.0) {
+        LightEmitColor = vec4(pass_Color, 1.0);
+    } else {
+        LightEmitColor = vec4(0, 0, 0, 1);
+    }
 }

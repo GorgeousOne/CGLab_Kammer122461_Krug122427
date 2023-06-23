@@ -158,10 +158,17 @@ void ApplicationSolar::renderFrameBuffer() {
   glBindVertexArray(screen_quad_object.vertex_AO);
 
   // Bind the post-processing texture to shader
+  auto programID = m_shaders.at("post_process").handle;
+  glUniform1i(glGetUniformLocation(programID, "ColorTex"), 0);
+  glUniform1i(glGetUniformLocation(programID, "DepthTex"), 1);
+  glUniform1i(glGetUniformLocation(programID, "LightTex"), 2);
+
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, pp_color_texture);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, pp_depth_texture);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, pp_light_texture);
 
   // Render the quad with the post-processing texture over the entire screen
   glDrawArrays(screen_quad_object.draw_mode, 0, screen_quad_object.num_elements);
@@ -244,6 +251,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("post_process").u_locs["ProjectionMatrix"] = -1;
   m_shaders.at("post_process").u_locs["ColorTex"] = -1;
   m_shaders.at("post_process").u_locs["DepthTex"] = -1;
+  m_shaders.at("post_process").u_locs["LightTex"] = -1;
 }
 
 void ApplicationSolar::initializeFrameBuffers() {
@@ -252,8 +260,10 @@ void ApplicationSolar::initializeFrameBuffers() {
 
   glGenTextures(1, &color_texture);
   glGenTextures(1, &depth_texture);
+  glGenTextures(1, &light_texture);
   glGenTextures(1, &pp_color_texture);
   glGenTextures(1, &pp_depth_texture);
+  glGenTextures(1, &pp_light_texture);
 
   updateBufferTextures(initial_resolution[0], initial_resolution[1]);
 
@@ -288,8 +298,14 @@ void ApplicationSolar::updateBufferTextures(int width, int height) {
   glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
   // Create frame buffer texture
   createBufferTexture(color_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT0);
+  // create buffer for light rendering only
+  createBufferTexture(light_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT1);
   // add depth texture
   createBufferTexture(depth_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
+
+  //order where rendered output should be directed to
+  GLenum attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+  glDrawBuffers(2, attachments);
 
   // Check framebuffer completeness
   auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -300,6 +316,7 @@ void ApplicationSolar::updateBufferTextures(int width, int height) {
   //create normal buffer with same components for post-processing
   glBindFramebuffer(GL_FRAMEBUFFER, post_process_fbo);
   createBufferTexture(pp_color_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT0);
+  createBufferTexture(pp_light_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT1);
   createBufferTexture(pp_depth_texture, width, height, GL_TEXTURE_2D, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
 
   fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);

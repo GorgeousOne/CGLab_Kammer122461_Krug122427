@@ -71,10 +71,12 @@ protected:
   unsigned int msaa_fbo;
   unsigned int color_texture;
   unsigned int depth_texture;
+  unsigned int light_texture;
 
   unsigned int post_process_fbo;
   unsigned int pp_color_texture;
   unsigned int pp_depth_texture;
+  unsigned int pp_light_texture;
 
   // cpu representation of model
   model_object screen_quad_object;

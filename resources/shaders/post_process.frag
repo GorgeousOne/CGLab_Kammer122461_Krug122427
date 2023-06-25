@@ -34,79 +34,75 @@ vec4 radialBlurColor(vec2 uv, int samples, float intensity, float decay) {
     return color;
 }
 
+vec3 barycentric(vec2 p, vec2 a, vec2 b, vec2 c) {
+    vec2 v0 = b - a;
+    vec2 v1 = c - a;
+    vec2 v2 = p - a;
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+    float v = (d11 * d20 - d01 * d21) / denom;
+    float w = (d00 * d21 - d01 * d20) / denom;
+    float u = 1.0f - v - w;
+    return vec3(u, v, w);
+}
+
 vec2 screenRes = vec2(1280, 720);
+float aspect = screenRes.x / screenRes.y;
+
+//horizontal triangle rows on the screen
 int segments = 3;
-float triHeight = screenRes.y / segments;
-vec2 triSize = vec2(2 * triHeight / sqrt(3.0), triHeight);
-vec2 triCenter = triSize * vec2(0.5, 1.0 / 3.0);
+//how much of the height of the scene one triangle covers
+float triHeight = 1;
+float triHalfWidth = triHeight / sqrt(3.0) / aspect;
+
+//the 3 possible uvs for all triangles in the kaleidoscope
+vec2[3] uvs = vec2[3](vec2(0.5 - triHalfWidth, 0.0), vec2(0.5 + triHalfWidth, 0.0), vec2(0.5, triHeight));
+//the 4 vertices of 2 triangles if they were sheared to form a square
+vec2[4] vertices = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
 
 vec2 kaleidoscopeUV(vec2 uv) {
-    //scale 01 uvs to screen size
-    vec2 pos = uv * screenRes;
+    vec2 pos = uv;
     //center triangles horizontally;
-    pos.x += 0.5 * screenRes.x + 0.25 * triSize.x;
-    //transform pos to be between 01 for triangle extents
-    pos /= triSize;
+    pos.x += 0.5 + triHalfWidth / segments;
+    //map triangle width & height to 01 range
+    pos *= vec2(aspect, 1.0) / vec2(2.0 / sqrt(3.0), 1.0) * segments;
     //repeat pattern after 2 rows of triangles
-    pos.y = mod(pos.y, 2);
+    pos.y = mod(pos.y, 2.0);
 
     //mirror 2nd row on first row
-    if (pos.y >= 1) {
-        pos.y = 2 - pos.y;
-    }
-    //rectify triangle grid for easier coordinates
+    int isMirroredY = int(pos.y); //either 0 or 1
+    int isInvertedY = int(-2 * (isMirroredY - 0.5)); //maps 0, 1 to 1, -1
+    pos.y = isMirroredY * 2 + isInvertedY * pos.y;
+
+    //rectify triangle position ny shearing for easier calculations
     float shearX = 0.5 * pos.y;
-    //repeat triangles after 6 in a row
-    pos.x = mod(pos.x - shearX, 3);
+    //repeat triangles after 6th in a row
+    pos.x = mod(pos.x - shearX, 3.0);
 
-    //make triangles 4, 5, 6 flipped versions of triangles 1, 2, 3
-    if (pos.x + pos.y > 2) {
-        //translate to 1, 2, 3
-        pos.x -= 2;
-        //mirror y coordinate
-        pos.y = 1 - pos.y;
-        //mirror rectification shear as well
-        pos.x += 2 * shearX;
-        shearX = 0.5 - shearX;
-    }
-    //define transforms to rotate and flip triangles 2 & 3 correctly
-    //rotation to rotate triangles to triangle 1
-    float rotation = 0;
-    //shift to translate to 1
-    vec2 shift = vec2(0.0);
-    //mirror to create mirrored image of 1
-    bool doMirrorX = false;
-    
-    //set transforms for 3rd triangle
-    if (pos.x > 1) {
-        rotation = PI * 2.0 / 3.0;
-        shift.x = - 1;
-    //... for for 2nd triangle
-    }else if (pos.x + pos.y > 1) {
-        rotation = -PI / 3.0;
-        shift = vec2(-0.5, -1.0 / 3.0);
-        doMirrorX = true;
-    }
-    //undo rectification shear to be able to rotate properly
-    pos.x += shearX;
-    //perform transformtion
-    pos += shift;
-    pos *= triSize;
+    //calculate offset of triangle uvs in it's row of 6 triangles
+    int uvOffset = int(pos.x / 1);
 
-    //bring rotation center to middle of triangle
-    pos -= triCenter;
+    //bring position in range of first 2 triangles (2 sheared triangles that for a sqaure)
+    pos.x = mod(pos.x, 1.0);
 
-    vec2 rotatedPos = vec2(
-        pos.x * cos(rotation) - pos.y * sin(rotation),
-        pos.x * sin(rotation) + pos.y * cos(rotation)
-    );
-    if (doMirrorX) {
-        rotatedPos.x = 1 - rotatedPos.x;
-    }
-    rotatedPos += triCenter;
-    rotatedPos /= screenRes;
-    rotatedPos *= segments;
-    return rotatedPos;
+    //calculate vertex offset if position lies in 2nd upside down triangle
+    int vertOffset = int(pos.x + pos.y);
+    //ofsset uvs 1 more if position is in upside down triangle
+    uvOffset += vertOffset;
+
+    //interpolate weights of the 3 vertices surrounding the position
+    vec3 uvw = barycentric(pos, vertices[vertOffset], vertices[vertOffset + 1], vertices[vertOffset + 2]);
+    //use weights at uvs
+    vec2 uvInterpolated =
+        uvw.x * uvs[uvOffset] +
+        uvw.y * uvs[int(mod(uvOffset + 1, 3))] +
+        uvw.z * uvs[int(mod(uvOffset + 2, 3))];
+
+    return uvInterpolated;
 }
 
 void main() {

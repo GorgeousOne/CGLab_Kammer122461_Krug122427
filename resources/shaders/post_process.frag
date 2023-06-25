@@ -105,11 +105,31 @@ vec2 kaleidoscopeUV(vec2 uv) {
     return uvInterpolated;
 }
 
+//from https://www.shadertoy.com/view/4s2GRR
+vec2 fisheye(vec2 uv, float strength) {
+    vec2 pos = uv;
+    pos.x *= aspect;
+
+    vec2 center = vec2(0.5 * aspect, 0.5);
+    vec2 delta = pos - center;
+    //radius from screen center
+    float radius = length(delta);
+
+    float halfDiagonal = length(center);
+    float power = (PI / (2.0 * halfDiagonal)) * strength;
+
+    vec2 distortedUV = center + normalize(delta) * tan(radius * power) * halfDiagonal / tan( halfDiagonal * power);
+    distortedUV.x /= aspect;
+    return distortedUV;
+}
+
 void main() {
     vec2 uv = TexCoords;
-    uv = kaleidoscopeUV(uv);
-    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
-    //    FragColor = vec4(depth, depth, depth, 1);
-    //    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
+//    uv = kaleidoscopeUV(uv);
+    uv = fisheye(uv, 0.8);
+
+//    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
+//    FragColor = vec4(depth, depth, depth, 1);
+//    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
     FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
 }

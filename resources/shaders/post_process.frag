@@ -10,11 +10,11 @@ uniform sampler2D ColorTex;
 uniform sampler2D DepthTex;
 uniform sampler2D LightTex;
 
-float near = 0.1;
-float far = 100.0;
+const float NEAR = 0.1;
+const float FAR = 100.0;
 
 float linearizeDepth(float depth) {
-    return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
+    return (2.0 * NEAR * FAR) / (FAR + NEAR - (depth * 2.0 - 1.0) * (FAR - NEAR));
 }
 
 vec4 radialBlurColor(vec2 uv, int samples, float intensity, float decay) {
@@ -50,14 +50,14 @@ vec3 barycentric(vec2 p, vec2 a, vec2 b, vec2 c) {
     return vec3(u, v, w);
 }
 
-vec2 screenRes = vec2(1280, 720);
-float aspect = screenRes.x / screenRes.y;
+const vec2 SCREEN_RES = vec2(1280, 720);
+const float ASPECT = SCREEN_RES.x / SCREEN_RES.y;
 
 //horizontal triangle rows on the screen
-int segments = 3;
+const int SEGMENTS = 3;
 //how much of the height of the scene one triangle covers
 float triHeight = 1;
-float triHalfWidth = triHeight / sqrt(3.0) / aspect;
+float triHalfWidth = triHeight / sqrt(3.0) / ASPECT;
 
 //the 3 possible uvs for all triangles in the kaleidoscope
 vec2[3] uvs = vec2[3](vec2(0.5 - triHalfWidth, 0.0), vec2(0.5 + triHalfWidth, 0.0), vec2(0.5, triHeight));
@@ -67,9 +67,9 @@ vec2[4] vertices = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(
 vec2 kaleidoscopeUV(vec2 uv) {
     vec2 pos = uv;
     //center triangles horizontally;
-    pos.x += 0.5 + triHalfWidth / segments;
+    pos.x += 0.5 + triHalfWidth / SEGMENTS;
     //map triangle width & height to 01 range
-    pos *= vec2(aspect, 1.0) / vec2(2.0 / sqrt(3.0), 1.0) * segments;
+    pos *= vec2(ASPECT, 1.0) / vec2(2.0 / sqrt(3.0), 1.0) * SEGMENTS;
     //repeat pattern after 2 rows of triangles
     pos.y = mod(pos.y, 2.0);
 
@@ -108,9 +108,9 @@ vec2 kaleidoscopeUV(vec2 uv) {
 //from https://www.shadertoy.com/view/4s2GRR
 vec2 fisheye(vec2 uv, float strength) {
     vec2 pos = uv;
-    pos.x *= aspect;
+    pos.x *= ASPECT;
 
-    vec2 center = vec2(0.5 * aspect, 0.5);
+    vec2 center = vec2(0.5 * ASPECT, 0.5);
     vec2 delta = pos - center;
     //radius from screen center
     float radius = length(delta);
@@ -119,17 +119,45 @@ vec2 fisheye(vec2 uv, float strength) {
     float power = (PI / (2.0 * halfDiagonal)) * strength;
 
     vec2 distortedUV = center + normalize(delta) * tan(radius * power) * halfDiagonal / tan( halfDiagonal * power);
-    distortedUV.x /= aspect;
+    distortedUV.x /= ASPECT;
     return distortedUV;
+}
+
+const int PIXEL_SIZE = 6;
+const vec2 PIXEL_SCREEN_RES = SCREEN_RES / PIXEL_SIZE;
+const int COLOR_DEPTH = 4;   // Higher num - higher colors quality
+
+const mat4 ditherTable = mat4(
+    -4.0, 0.0, -3.0, 1.0,
+    2.0, -2.0, 3.0, -1.0,
+    -3.0, 1.0, -4.0, 0.0,
+    3.0, -1.0, 2.0, -2.0
+);
+
+//https://www.shadertoy.com/view/tsKGDm
+vec4 dithered(vec2 uv, float ditherStrength) {
+    //pixelate uv coordinates
+    vec2 pixelPos = floor(uv * PIXEL_SCREEN_RES);
+    vec2 pixelUV = pixelPos / PIXEL_SCREEN_RES;
+    //get texture color (hardcodedly)
+    vec3 color = (texture(ColorTex, pixelUV) + radialBlurColor(pixelUV, 200, 1.0, 0.99)).xyz;
+
+    //dither color
+    color += ditherTable[int(pixelPos.x) % 4][int(pixelPos.y) % 4] * ditherStrength;
+    //reduce colors depth
+    color = floor(color * COLOR_DEPTH) / COLOR_DEPTH;
+    return vec4(color, 1.0);
 }
 
 void main() {
     vec2 uv = TexCoords;
 //    uv = kaleidoscopeUV(uv);
-    uv = fisheye(uv, 0.8);
+//    uv = fisheye(uv, 0.8);
 
 //    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
 //    FragColor = vec4(depth, depth, depth, 1);
 //    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
-    FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
+
+//    FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
+    FragColor = dithered(uv, 0.005);
 }

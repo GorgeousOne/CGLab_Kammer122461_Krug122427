@@ -9,6 +9,7 @@ out vec4 FragColor;
 uniform sampler2D ColorTex;
 uniform sampler2D DepthTex;
 uniform sampler2D LightTex;
+uniform sampler2D NoiseTex;
 
 const float NEAR = 0.1;
 const float FAR = 100.0;
@@ -98,9 +99,9 @@ vec2 kaleidoscopeUV(vec2 uv) {
     vec3 uvw = barycentric(pos, vertices[vertOffset], vertices[vertOffset + 1], vertices[vertOffset + 2]);
     //use weights at uvs
     vec2 uvInterpolated =
-        uvw.x * uvs[uvOffset] +
-        uvw.y * uvs[int(mod(uvOffset + 1, 3))] +
-        uvw.z * uvs[int(mod(uvOffset + 2, 3))];
+    uvw.x * uvs[uvOffset] +
+    uvw.y * uvs[int(mod(uvOffset + 1, 3))] +
+    uvw.z * uvs[int(mod(uvOffset + 2, 3))];
 
     return uvInterpolated;
 }
@@ -118,20 +119,21 @@ vec2 fisheye(vec2 uv, float strength) {
     float halfDiagonal = length(center);
     float power = (PI / (2.0 * halfDiagonal)) * strength;
 
-    vec2 distortedUV = center + normalize(delta) * tan(radius * power) * halfDiagonal / tan( halfDiagonal * power);
+    //distort uv from center outwards
+    vec2 distortedUV = center + normalize(delta) * tan(radius * power) * halfDiagonal / tan(halfDiagonal * power);
     distortedUV.x /= ASPECT;
     return distortedUV;
 }
 
 const int PIXEL_SIZE = 6;
 const vec2 PIXEL_SCREEN_RES = SCREEN_RES / PIXEL_SIZE;
-const int COLOR_DEPTH = 4;   // Higher num - higher colors quality
+const int COLOR_DEPTH = 4; // Higher num - higher colors quality
 
 const mat4 ditherTable = mat4(
-    -4.0, 0.0, -3.0, 1.0,
-    2.0, -2.0, 3.0, -1.0,
-    -3.0, 1.0, -4.0, 0.0,
-    3.0, -1.0, 2.0, -2.0
+-4.0, 0.0, -3.0, 1.0,
+2.0, -2.0, 3.0, -1.0,
+-3.0, 1.0, -4.0, 0.0,
+3.0, -1.0, 2.0, -2.0
 );
 
 //https://www.shadertoy.com/view/tsKGDm
@@ -149,15 +151,104 @@ vec4 dithered(vec2 uv, float ditherStrength) {
     return vec4(color, 1.0);
 }
 
+// created by florian berger (flockaroo) - 2018
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+// crosshatch effect
+#define SHADERTOY_RES vec2(640, 360)
+#define FLICKER 0.01
+
+#define PI2 6.28318530718
+#define hatchScale (SHADERTOY_RES.x/600.)
+#define iTime 1.0
+
+vec2 roffs;
+float ramp;
+float rsc;
+
+vec2 uvSmooth(vec2 uv, vec2 res) {
+    return uv + .6 * sin(uv * res * PI2) / PI2 / res;
+}
+
+vec4 getRand(vec2 pos) {
+    vec2 tres = vec2(textureSize(NoiseTex, 0));
+    vec2 uv = pos / tres.xy;
+    uv = uvSmooth(uv, tres);
+    return textureLod(NoiseTex, uv, 0.);
+}
+
+vec4 getCol(vec2 pos) {
+    vec4 r1 = (getRand((pos + roffs) * .05 * rsc / hatchScale + iTime * 131. * FLICKER) - .5) * 10. * ramp;
+    vec2 uv = (pos + r1.xy * hatchScale) / SHADERTOY_RES;
+    vec4 c = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
+    return c;
+}
+
+float getVal(vec2 pos) {
+    return clamp(dot(getCol(pos).xyz, vec3(.333)), 0., 1.);
+}
+
+vec2 getGrad(vec2 pos, float eps) {
+    vec2 d = vec2(eps, 0);
+    return vec2(
+        getVal(pos + d.xy) - getVal(pos - d.xy),
+        getVal(pos + d.yx) - getVal(pos - d.yx)
+    ) / eps / 2.;
+}
+
+vec4 crosshatch(vec2 fragCoord) {
+    fragCoord *= SHADERTOY_RES;
+    vec4 fragColor = vec4(1, 1, 1, 1.0);
+
+    // subtraction of 2 rand values, so its [-1..1] and noise-wise not as white anymore
+    vec4 r = getRand(fragCoord * 1.2 / sqrt(hatchScale)) - getRand(fragCoord * 1.2 / sqrt(hatchScale) + vec2(1, -1) * 1.5);
+
+    // white noise
+    vec4 r2 = getRand(fragCoord * 1.2 / sqrt(hatchScale));
+
+    // cross hatch
+    ramp = 0.;
+    int hnum = 5;
+    #define N(v) (v.yx * vec2(-1, 1))
+    #define CS(ang) cos(ang - vec2(0, 1.6))
+    float hatch = 0.;
+    float hatch2 = 0.;
+    float sum = 0.;
+
+    for (int i = 0; i < hnum; i++) {
+        float br = getVal(fragCoord + 1.5 * hatchScale * (getRand(fragCoord * .02 + iTime * 1120.).xy - .5) * clamp(FLICKER, -1., 1.)) * 1.7;
+        // chose the hatch angle to be prop to i*i
+        // so the first 2 hatches are close to the same angle,
+        // and all the higher i's are fairly random in angle
+        float ang = -.5 - .08 * float(i) * float(i);
+        vec2 uvh = mat2(CS(ang), N(CS(ang))) * fragCoord / sqrt(hatchScale) * vec2(.05, 1) * 1.3;
+        vec4 rh = pow(getRand(uvh + 1003.123 * iTime * FLICKER + vec2(sin(uvh.y), 0)), vec4(1.));
+        hatch += 1. - smoothstep(.5, 1.5, (rh.x) + br) - .3 * abs(r.z);
+        hatch2 = max(hatch2, 1. - smoothstep(.5, 1.5, (rh.x) + br) - .3 * abs(r.z));
+        sum += 1.;
+        if (float(i) > (1. - br) * float(hnum) && i >= 2) break;
+    }
+    fragColor.xyz *= 1. - clamp(mix(hatch / sum, hatch2, .5), 0., 1.);
+    fragColor.xyz = 1. - ((1. - fragColor.xyz) * .7);
+
+    // white paper
+    vec3 paperNoise = .95 + .06 * r.xxx + .06 * r.xyz;
+    float luminance = dot(paperNoise, vec3(0.2125, 0.7152, 0.0722));
+    fragColor.xyz *= luminance;
+
+    fragColor.w = 1.;
+    return fragColor;
+}
+
 void main() {
     vec2 uv = TexCoords;
-//    uv = kaleidoscopeUV(uv);
-//    uv = fisheye(uv, 0.8);
+    //    uv = kaleidoscopeUV(uv);
+    //    uv = fisheye(uv, 0.8);
 
-//    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
-//    FragColor = vec4(depth, depth, depth, 1);
-//    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
+    //    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
+    //    FragColor = vec4(depth, depth, depth, 1);
+    //    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
 
-//    FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
-    FragColor = dithered(uv, 0.005);
+    //    FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
+    //    FragColor = dithered(uv, 0.005);
+    FragColor = crosshatch(uv);
 }

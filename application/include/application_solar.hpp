@@ -87,6 +87,8 @@ protected:
   model_object saturn_rings;
   model_object skybox_object;
 
+  texture_object noiseTex;
+
   //pressed keys
   std::set<int> m_keys_down;
   std::map<std::string, Planet> m_planetData;

@@ -46,6 +46,8 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
   initializeFrameBuffers();
   initializeSceneGraph();
   SceneGraph::get().printGraph(std::cout);
+
+  noiseTex = loadTexture(m_resource_path + "textures/RGBA_noise_small_shadertoy.png");
 }
 
 ApplicationSolar::~ApplicationSolar() {
@@ -64,7 +66,6 @@ ApplicationSolar::~ApplicationSolar() {
   glDeleteBuffers(1, &skybox_object.vertex_BO);
   glDeleteBuffers(1, &skybox_object.element_BO);
   glDeleteVertexArrays(1, &skybox_object.vertex_AO);
-
 }
 
 void ApplicationSolar::render() {
@@ -170,6 +171,11 @@ void ApplicationSolar::renderFrameBuffer() {
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, pp_light_texture);
 
+  //upload noise texture for post-processing effects (theoretically only needed once)
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, noiseTex.handle);
+  glUniform1i(m_shaders.at("post_process").u_locs.at("NoiseTex"), 3);
+
   // Render the quad with the post-processing texture over the entire screen
   glDrawArrays(screen_quad_object.draw_mode, 0, screen_quad_object.num_elements);
 }
@@ -252,6 +258,8 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("post_process").u_locs["ColorTex"] = -1;
   m_shaders.at("post_process").u_locs["DepthTex"] = -1;
   m_shaders.at("post_process").u_locs["LightTex"] = -1;
+  m_shaders.at("post_process").u_locs["NoiseTex"] = -1;
+
 }
 
 void ApplicationSolar::initializeFrameBuffers() {
@@ -312,7 +320,6 @@ void ApplicationSolar::updateBufferTextures(int width, int height) {
   if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
     std::cout << "Framebuffer error: " << fboStatus << std::endl;
   }
-
   //create normal buffer with same components for post-processing
   glBindFramebuffer(GL_FRAMEBUFFER, post_process_fbo);
   createBufferTexture(pp_color_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT0);
@@ -337,7 +344,6 @@ void ApplicationSolar::createBufferTexture(
 
   if (target == GL_TEXTURE_2D_MULTISAMPLE) {
     glTexImage2DMultisample(target, 8, format, width, height, GL_TRUE);
-    //  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGB, width, height, GL_TRUE);
   } else {
     glTexImage2D(target, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, NULL);
   }

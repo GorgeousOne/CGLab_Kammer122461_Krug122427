@@ -55,7 +55,7 @@ const vec2 SCREEN_RES = vec2(1280, 720);
 const float ASPECT = SCREEN_RES.x / SCREEN_RES.y;
 
 //horizontal triangle rows on the screen
-const int SEGMENTS = 3;
+const int TRIANGLE_ROWS = 3;
 //how much of the height of the scene one triangle covers
 float triHeight = 1;
 float triHalfWidth = triHeight / sqrt(3.0) / ASPECT;
@@ -68,9 +68,9 @@ vec2[4] vertices = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(
 vec2 kaleidoscopeUV(vec2 uv) {
     vec2 pos = uv;
     //center triangles horizontally;
-    pos.x += 0.5 + triHalfWidth / SEGMENTS;
+    pos.x += 0.5 + triHalfWidth / TRIANGLE_ROWS;
     //map triangle width & height to 01 range
-    pos *= vec2(ASPECT, 1.0) / vec2(2.0 / sqrt(3.0), 1.0) * SEGMENTS;
+    pos *= vec2(ASPECT, 1.0) / vec2(2.0 / sqrt(3.0), 1.0) * TRIANGLE_ROWS;
     //repeat pattern after 2 rows of triangles
     pos.y = mod(pos.y, 2.0);
 
@@ -151,47 +151,61 @@ vec4 dithered(vec2 uv, float ditherStrength) {
     return vec4(color, 1.0);
 }
 
+//https://www.shadertoy.com/view/MsKfRw
 // created by florian berger (flockaroo) - 2018
 // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 // crosshatch effect
 #define SHADERTOY_RES vec2(640, 360)
-#define FLICKER 0.01
+//factor to control hatch moving between -1 and 1
+#define FLICKER 0.0
 
-#define PI2 6.28318530718
+#define TWO_PI 6.28318530718
 #define hatchScale (SHADERTOY_RES.x/600.)
+//time passed to the shader
 #define iTime 1.0
 
-vec2 roffs;
-float ramp;
-float rsc;
+vec2 randOffsets;
+float randAmplitude;
+float randScale;
 
-vec2 uvSmooth(vec2 uv, vec2 res) {
-    return uv + .6 * sin(uv * res * PI2) / PI2 / res;
+
+//This function applies a smooth distortion to the UV coordinates based on the resolution of the shader.
+//It uses sine waves to create a smooth variation in the UV coordinates.
+vec2 uvSmooth(vec2 uv, vec2 resolution) {
+    return uv + .6 * sin(uv * resolution * TWO_PI) / TWO_PI / resolution;
 }
 
-vec4 getRand(vec2 pos) {
-    vec2 tres = vec2(textureSize(NoiseTex, 0));
-    vec2 uv = pos / tres.xy;
-    uv = uvSmooth(uv, tres);
+vec4 getRand4(vec2 pos) {
+    vec2 texRes = vec2(textureSize(NoiseTex, 0));
+    vec2 uv = pos / texRes.xy;
+    uv = uvSmooth(uv, texRes);
     return textureLod(NoiseTex, uv, 0.);
 }
 
-vec4 getCol(vec2 pos) {
-    vec4 r1 = (getRand((pos + roffs) * .05 * rsc / hatchScale + iTime * 131. * FLICKER) - .5) * 10. * ramp;
-    vec2 uv = (pos + r1.xy * hatchScale) / SHADERTOY_RES;
+//This function calculates the color of a pixel based on its position.
+//It uses a combination of random vectors, scaling factors, and texture sampling to determine the final color.
+vec4 getColor(vec2 pos) {
+    vec4 randVec = (getRand4((pos + randOffsets) * .05 * randScale / hatchScale + iTime * 131. * FLICKER) - .5) * 10. * randAmplitude;
+    vec2 uv = (pos + randVec.xy * hatchScale) / SHADERTOY_RES;
     vec4 c = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
     return c;
 }
 
-float getVal(vec2 pos) {
-    return clamp(dot(getCol(pos).xyz, vec3(.333)), 0., 1.);
+float luminance(vec3 color) {
+    return dot(color, vec3(0.2125, 0.7152, 0.0722));
 }
 
-vec2 getGrad(vec2 pos, float eps) {
-    vec2 d = vec2(eps, 0);
+float getGrayColor(vec2 pos) {
+    return luminance(getColor(pos).xyz);
+}
+
+//This function calculates the gradient of the grayscale values at a given position.
+//It computes the differences in grayscale values in the x and y directions using a small epsilon value.
+vec2 getGradient(vec2 pos, float eps) {
+    vec2 delta = vec2(eps, 0);
     return vec2(
-        getVal(pos + d.xy) - getVal(pos - d.xy),
-        getVal(pos + d.yx) - getVal(pos - d.yx)
+        getGrayColor(pos + delta.xy) - getGrayColor(pos - delta.xy),
+        getGrayColor(pos + delta.yx) - getGrayColor(pos - delta.yx)
     ) / eps / 2.;
 }
 
@@ -200,40 +214,60 @@ vec4 crosshatch(vec2 fragCoord) {
     vec4 fragColor = vec4(1, 1, 1, 1.0);
 
     // subtraction of 2 rand values, so its [-1..1] and noise-wise not as white anymore
-    vec4 r = getRand(fragCoord * 1.2 / sqrt(hatchScale)) - getRand(fragCoord * 1.2 / sqrt(hatchScale) + vec2(1, -1) * 1.5);
-
-    // white noise
-    vec4 r2 = getRand(fragCoord * 1.2 / sqrt(hatchScale));
+    vec4 randVec = getRand4(fragCoord * 1.2 / sqrt(hatchScale)) - getRand4(fragCoord * 1.2 / sqrt(hatchScale) + vec2(1, -1) * 1.5);
 
     // cross hatch
-    ramp = 0.;
-    int hnum = 5;
-    #define N(v) (v.yx * vec2(-1, 1))
-    #define CS(ang) cos(ang - vec2(0, 1.6))
+    randAmplitude = 0.;
+    int hatchNum = 5;
+
+    //returns 2D orthogonal vector
+    #define ortho(v) (v.yx * vec2(-1, 1))
+    //also controls the angle between multiple hatches? 0 - no rotation, 1 - 45°?
+    #define shiftYFactor 1.6
+    #define cosPhaseShiftY(angle) cos(angle - vec2(0, shiftYFactor))
+
     float hatch = 0.;
     float hatch2 = 0.;
-    float sum = 0.;
+    float appliedHatchesNum = 0.;
 
-    for (int i = 0; i < hnum; i++) {
-        float br = getVal(fragCoord + 1.5 * hatchScale * (getRand(fragCoord * .02 + iTime * 1120.).xy - .5) * clamp(FLICKER, -1., 1.)) * 1.7;
-        // chose the hatch angle to be prop to i*i
+    for (int i = 0; i < hatchNum; i++) {
+        vec2 timeOffset = getRand4(fragCoord * .02 + iTime * 1120.).xy - .5;
+        float brightness = getGrayColor(fragCoord + 1.5 * hatchScale * timeOffset * clamp(FLICKER, -1., 1.)) * 1.7;
+
+        // chose the hatch angle to be proportional to i*i
         // so the first 2 hatches are close to the same angle,
-        // and all the higher i's are fairly random in angle
-        float ang = -.5 - .08 * float(i) * float(i);
-        vec2 uvh = mat2(CS(ang), N(CS(ang))) * fragCoord / sqrt(hatchScale) * vec2(.05, 1) * 1.3;
-        vec4 rh = pow(getRand(uvh + 1003.123 * iTime * FLICKER + vec2(sin(uvh.y), 0)), vec4(1.));
-        hatch += 1. - smoothstep(.5, 1.5, (rh.x) + br) - .3 * abs(r.z);
-        hatch2 = max(hatch2, 1. - smoothstep(.5, 1.5, (rh.x) + br) - .3 * abs(r.z));
-        sum += 1.;
-        if (float(i) > (1. - br) * float(hnum) && i >= 2) break;
+        // and all the higher i-ths hatches are fairly random in angle
+        float hatchAngle = -.5 - .08 * float(i * i);
+        //rotates hatching according to hatchangle
+        mat2 hatchRotate = mat2(cosPhaseShiftY(hatchAngle), ortho(cosPhaseShiftY(hatchAngle)));
+        //rotates uv coordinates to hatchangle
+        vec2 uvHatch = hatchRotate * fragCoord;
+        //* vec2(.05, 1) scales down x coordinate which stretches random patterns across the x axis
+        uvHatch = uvHatch / sqrt(hatchScale) * vec2(.05, 1) * 1.3;
+        //creates a random brightness (x coord) where close x coords get similar values
+        //sinus probably introduces a randomness along y axis
+        vec4 randomHatch = pow(getRand4(uvHatch + 1003.123 * iTime * FLICKER + vec2(sin(uvHatch.y), 0)), vec4(1.));
+
+        //decrease brightness of pixel per hatching
+        hatch += 1. - smoothstep(.5, 1.5, (randomHatch.x) + brightness) - .3 * abs(randVec.z);
+        //i think one of these two actually makes bright hatchings
+        hatch2 = max(hatch2, 1. - smoothstep(.5, 1.5, (randomHatch.x) + brightness) - .3 * abs(randVec.z));
+        appliedHatchesNum += 1.;
+
+        //no more hatches if something br is too big?
+        if (float(i) > (1. - brightness) * float(hatchNum) && i >= 2) {
+            break;
+        }
     }
-    fragColor.xyz *= 1. - clamp(mix(hatch / sum, hatch2, .5), 0., 1.);
-    fragColor.xyz = 1. - ((1. - fragColor.xyz) * .7);
+    //decreases pixel brightness with a 50/50 mix of hatches
+    fragColor.xyz *= 1. - clamp(mix(hatch / appliedHatchesNum, hatch2, 0.5), 0., 1.);
+    //brighten up hatches a bit
+    float brightenFactor = 0.7;
+    fragColor.xyz = 1. - ((1. - fragColor.xyz) * brightenFactor);
 
     // white paper
-    vec3 paperNoise = .95 + .06 * r.xxx + .06 * r.xyz;
-    float luminance = dot(paperNoise, vec3(0.2125, 0.7152, 0.0722));
-    fragColor.xyz *= luminance;
+    vec3 paperNoise = .95 + .06 * randVec.xxx + .06 * randVec.xyz;
+    fragColor.xyz *= luminance(paperNoise);
 
     fragColor.w = 1.;
     return fragColor;

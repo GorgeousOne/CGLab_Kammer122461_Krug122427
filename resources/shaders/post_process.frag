@@ -10,6 +10,7 @@ uniform sampler2D ColorTex;
 uniform sampler2D DepthTex;
 uniform sampler2D LightTex;
 uniform sampler2D NoiseTex;
+uniform float Time;
 
 const float NEAR = 0.1;
 const float FAR = 100.0;
@@ -157,12 +158,12 @@ vec4 dithered(vec2 uv, float ditherStrength) {
 // crosshatch effect
 #define SHADERTOY_RES vec2(640, 360)
 //factor to control hatch moving between -1 and 1
-#define FLICKER 0.0
+#define FLICKER 0.1
 
 #define TWO_PI 6.28318530718
 #define hatchScale (SHADERTOY_RES.x/600.)
 //time passed to the shader
-#define iTime 1.0
+//#define Time 1.0
 
 vec2 randOffsets;
 float randAmplitude;
@@ -185,7 +186,7 @@ vec4 getRand4(vec2 pos) {
 //This function calculates the color of a pixel based on its position.
 //It uses a combination of random vectors, scaling factors, and texture sampling to determine the final color.
 vec4 getColor(vec2 pos) {
-    vec4 randVec = (getRand4((pos + randOffsets) * .05 * randScale / hatchScale + iTime * 131. * FLICKER) - .5) * 10. * randAmplitude;
+    vec4 randVec = (getRand4((pos + randOffsets) * .05 * randScale / hatchScale + Time * 131. * FLICKER) - .5) * 10. * randAmplitude;
     vec2 uv = (pos + randVec.xy * hatchScale) / SHADERTOY_RES;
     vec4 c = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
     return c;
@@ -218,7 +219,7 @@ vec4 crosshatch(vec2 fragCoord) {
 
     // cross hatch
     randAmplitude = 0.;
-    int hatchNum = 5;
+    int hatchNum = 4;
 
     //returns 2D orthogonal vector
     #define ortho(v) (v.yx * vec2(-1, 1))
@@ -231,7 +232,7 @@ vec4 crosshatch(vec2 fragCoord) {
     float appliedHatchesNum = 0.;
 
     for (int i = 0; i < hatchNum; i++) {
-        vec2 timeOffset = getRand4(fragCoord * .02 + iTime * 1120.).xy - .5;
+        vec2 timeOffset = getRand4(fragCoord * .02 + Time * 1120.).xy - .5;
         float brightness = getGrayColor(fragCoord + 1.5 * hatchScale * timeOffset * clamp(FLICKER, -1., 1.)) * 1.7;
 
         // chose the hatch angle to be proportional to i*i
@@ -246,7 +247,7 @@ vec4 crosshatch(vec2 fragCoord) {
         uvHatch = uvHatch / sqrt(hatchScale) * vec2(.05, 1) * 1.3;
         //creates a random brightness (x coord) where close x coords get similar values
         //sinus probably introduces a randomness along y axis
-        vec4 randomHatch = pow(getRand4(uvHatch + 1003.123 * iTime * FLICKER + vec2(sin(uvHatch.y), 0)), vec4(1.));
+        vec4 randomHatch = pow(getRand4(uvHatch + 1003.123 * Time * FLICKER + vec2(sin(uvHatch.y), 0)), vec4(1.));
 
         //decrease brightness of pixel per hatching
         hatch += 1. - smoothstep(.5, 1.5, (randomHatch.x) + brightness) - .3 * abs(randVec.z);

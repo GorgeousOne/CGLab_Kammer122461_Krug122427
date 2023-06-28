@@ -175,6 +175,7 @@ void ApplicationSolar::renderFrameBuffer() {
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, noiseTex.handle);
   glUniform1i(m_shaders.at("post_process").u_locs.at("NoiseTex"), 3);
+  glUniform1f(m_shaders.at("post_process").u_locs.at("Time"), glfwGetTime());
 
   // Render the quad with the post-processing texture over the entire screen
   glDrawArrays(screen_quad_object.draw_mode, 0, screen_quad_object.num_elements);
@@ -259,6 +260,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("post_process").u_locs["DepthTex"] = -1;
   m_shaders.at("post_process").u_locs["LightTex"] = -1;
   m_shaders.at("post_process").u_locs["NoiseTex"] = -1;
+  m_shaders.at("post_process").u_locs["Time"] = -1;
 
 }
 

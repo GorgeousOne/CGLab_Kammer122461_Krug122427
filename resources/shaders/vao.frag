@@ -6,5 +6,5 @@ layout(location = 1) out vec4 LightEmitColor;
 
 void main(){
     FragColor = vec4(pass_Color, 1.0);
-    FragColor = vec4(0.0);
+    LightEmitColor = vec4(0.0);
 }

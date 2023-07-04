@@ -40,12 +40,12 @@ ApplicationSolar::ApplicationSolar(std::string const &resource_path)
       m_planetData{},
       m_cam{nullptr},
       m_last_frame{0} {
+  initializeKeyMap();
   initializePlanets();
   initializeGeometry();
   initializeShaderPrograms();
   initializeFrameBuffers();
   initializeSceneGraph();
-  SceneGraph::get().printGraph(std::cout);
 
   noiseTex = loadTexture(m_resource_path + "textures/RGBA_noise_small_shadertoy.png");
 }
@@ -119,6 +119,7 @@ void ApplicationSolar::rotatePlanets(double dTime) {
   });
 }
 
+//makes rendering go to framebuffer and not to screen
 void ApplicationSolar::enableMsaaBuffer() {
   //activate frame buffer
   glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
@@ -128,6 +129,7 @@ void ApplicationSolar::enableMsaaBuffer() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+//convert msaa buffer to normal buffer, because it can't be used for rendering
 void ApplicationSolar::copyMsaaBuffer() {
   int width = initial_resolution[0];
   int height = initial_resolution[1];
@@ -137,7 +139,7 @@ void ApplicationSolar::copyMsaaBuffer() {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, post_process_fbo);
   glReadBuffer(GL_COLOR_ATTACHMENT0);
   glDrawBuffer(GL_COLOR_ATTACHMENT0);
-  // blit color buffer
+  // blit color buffer (kind of like copy & paste)
   glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
   //blit lighting buffer
@@ -146,6 +148,7 @@ void ApplicationSolar::copyMsaaBuffer() {
   glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
+//render prerendered framebuffer to screen
 void ApplicationSolar::renderFrameBuffer() {
   copyMsaaBuffer();
 
@@ -216,17 +219,19 @@ void ApplicationSolar::uploadUniforms() {
 void ApplicationSolar::initializeShaderPrograms() {
   // store shader program objects in container
   m_shaders.emplace("planet", shader_program{{
-    {GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
-    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+                                                     {GL_VERTEX_SHADER, m_resource_path + "shaders/simple.vert"},
+                                                     {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
   m_shaders.emplace("wirenet", shader_program{{
-    {GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
-    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
+                                                      {GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
+                                                      {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
   m_shaders.emplace("skybox", shader_program{{
-    {GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
-    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
+                                                     {GL_VERTEX_SHADER, m_resource_path + "shaders/skybox.vert"},
+                                                     {GL_FRAGMENT_SHADER, m_resource_path + "shaders/skybox.frag"}}});
   m_shaders.emplace("post_process", shader_program{{
-    {GL_VERTEX_SHADER, m_resource_path + "shaders/post_process.vert"},
-    {GL_FRAGMENT_SHADER, m_resource_path + "shaders/post_process.frag"}}});
+                                                           {GL_VERTEX_SHADER,
+                                                            m_resource_path + "shaders/post_process.vert"},
+                                                           {GL_FRAGMENT_SHADER,
+                                                            m_resource_path + "shaders/post_process.frag"}}});
 
   // request uniform locations for shader program
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
@@ -262,12 +267,18 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("post_process").u_locs["NoiseTex"] = -1;
   m_shaders.at("post_process").u_locs["Time"] = -1;
 
+  for (auto const &pair: m_shader_key_map) {
+    m_shaders.at("post_process").u_locs[pair.second] = -1;
+  }
 }
 
+
 void ApplicationSolar::initializeFrameBuffers() {
+  //create framebuffer objects
   glGenFramebuffers(1, &msaa_fbo);
   glGenFramebuffers(1, &post_process_fbo);
 
+  //create textures for framebuffer objects
   glGenTextures(1, &color_texture);
   glGenTextures(1, &depth_texture);
   glGenTextures(1, &light_texture);
@@ -277,7 +288,7 @@ void ApplicationSolar::initializeFrameBuffers() {
 
   updateBufferTextures(initial_resolution[0], initial_resolution[1]);
 
-  //create quad covering window to render framebuffer to
+  //create quad covering entire screen to render framebuffer to
   float rectVertices[] = {
       //coords  //texCoords
       1.f, -1.f, 1.f, 0.f,
@@ -302,16 +313,17 @@ void ApplicationSolar::initializeFrameBuffers() {
   screen_quad_object.draw_mode = GL_TRIANGLES;
 }
 
+//create color, stencil & depth attachments for each framebuffer
 void ApplicationSolar::updateBufferTextures(int width, int height) {
 
-  // Create multisample frame buffer object
+  // bind multisample frame buffer object
   glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
   // Create frame buffer texture
-  createBufferTexture(color_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT0);
+  createTextureAttachment(color_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT0);
   // create buffer for light rendering only
-  createBufferTexture(light_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT1);
+  createTextureAttachment(light_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_RGB, GL_COLOR_ATTACHMENT1);
   // add depth texture
-  createBufferTexture(depth_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
+  createTextureAttachment(depth_texture, width, height, GL_TEXTURE_2D_MULTISAMPLE, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
 
   //order where rendered output should be directed to
   GLenum attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
@@ -324,9 +336,9 @@ void ApplicationSolar::updateBufferTextures(int width, int height) {
   }
   //create normal buffer with same components for post-processing
   glBindFramebuffer(GL_FRAMEBUFFER, post_process_fbo);
-  createBufferTexture(pp_color_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT0);
-  createBufferTexture(pp_light_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT1);
-  createBufferTexture(pp_depth_texture, width, height, GL_TEXTURE_2D, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
+  createTextureAttachment(pp_color_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT0);
+  createTextureAttachment(pp_light_texture, width, height, GL_TEXTURE_2D, GL_RGB, GL_COLOR_ATTACHMENT1);
+  createTextureAttachment(pp_depth_texture, width, height, GL_TEXTURE_2D, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
 
   fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -334,7 +346,7 @@ void ApplicationSolar::updateBufferTextures(int width, int height) {
   }
 }
 
-void ApplicationSolar::createBufferTexture(
+void ApplicationSolar::createTextureAttachment(
     GLuint texture,
     int width,
     int height,
@@ -716,6 +728,24 @@ texture_object ApplicationSolar::loadCubeMap(const std::string &path) {
   return textureObj;
 }
 
+void ApplicationSolar::initializeKeyMap() {
+  m_shader_key_map[GLFW_KEY_1] = "IsCelEnabled";
+  m_shader_key_map[GLFW_KEY_2] = "IsKaleidoscopeEnabled";
+  m_shader_key_map[GLFW_KEY_3] = "IsHatchingEnabled";
+  m_shader_key_map[GLFW_KEY_4] = "IsFisheyeEnabled";
+  m_shader_key_map[GLFW_KEY_5] = "IsDitheringEnabled";
+
+  m_shader_key_map[GLFW_KEY_7] = "IsGrayscaleEnabled";
+  m_shader_key_map[GLFW_KEY_8] = "IsMirrorXEnabled";
+  m_shader_key_map[GLFW_KEY_9] = "IsMirrorYEnabled";
+  m_shader_key_map[GLFW_KEY_0] = "IsBlurEnabled";
+
+  for (auto const& pair : m_shader_key_map) {
+    std::cout << pair.first << " " << pair.second << "\n";
+    m_shader_toggle_map[pair.second] = 0;
+  }
+}
+
 void ApplicationSolar::moveView(double dTime) {
   glm::fvec4 movement = glm::fvec4(0);
   float speed = 5;
@@ -738,6 +768,7 @@ void ApplicationSolar::moveView(double dTime) {
   if (isKeyDown(GLFW_KEY_SPACE)) {
     movement[1] += speed;
   }
+
   //create rotation matrix to adapt movement to viewing direction
   glm::fmat4 rotation = glm::fmat4(1);
   rotation = glm::rotate(rotation, m_cam->getYaw(), glm::vec3(0, 1, 0));
@@ -758,13 +789,19 @@ void ApplicationSolar::keyCallback(int key, int action, int mods) {
   }
 
   if (action == GLFW_PRESS) {
-    if(key == GLFW_KEY_1) {
-      glUseProgram(m_shaders.at("planet").handle);
-      glUniform1i(m_shaders.at("planet").u_locs.at("IsCelEnabled"), 0);
-    } else if (key == GLFW_KEY_2) {
-      glUseProgram(m_shaders.at("planet").handle);
-      glUniform1i(m_shaders.at("planet").u_locs.at("IsCelEnabled"), 1);
+    //is key in shader key map
+    if (m_shader_key_map.find(key) == m_shader_key_map.end()) {
+      return;
     }
+
+    auto uniformVal = m_shader_key_map.at(key);
+    //toggle enabled value
+    m_shader_toggle_map[uniformVal] = 1 - m_shader_toggle_map[uniformVal];
+    //upload toggles value to shader
+    auto shaderName = uniformVal == "IsCelEnabled" ? "planet" : "post_process";
+
+    glUseProgram(m_shaders.at(shaderName).handle);
+    glUniform1i(m_shaders.at(shaderName).u_locs.at(uniformVal), m_shader_toggle_map[uniformVal]);
   }
 }
 

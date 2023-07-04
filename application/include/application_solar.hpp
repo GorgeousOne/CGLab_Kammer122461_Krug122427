@@ -60,7 +60,7 @@ protected:
   void enableMsaaBuffer();
   void copyMsaaBuffer();
   void renderFrameBuffer();
-  void createBufferTexture(
+  void createTextureAttachment(
       GLuint texture,
       int width,
       int height,
@@ -99,6 +99,10 @@ protected:
   double m_last_frame;
 
   texture_object loadCubeMap(const std::string &fileName);
+  std::map<GLuint, std::string> m_shader_key_map;
+  std::map<std::string, int> m_shader_toggle_map;
+
+  void initializeKeyMap();
 };
 
 #endif

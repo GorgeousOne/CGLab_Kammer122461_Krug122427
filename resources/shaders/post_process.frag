@@ -13,7 +13,7 @@ uniform sampler2D NoiseTex;
 uniform float Time;
 
 const float NEAR = 0.1;
-const float FAR = 100.0;
+const float FAR = 10.0;
 
 float linearizeDepth(float depth) {
     return (2.0 * NEAR * FAR) / (FAR + NEAR - (depth * 2.0 - 1.0) * (FAR - NEAR));
@@ -139,9 +139,9 @@ const mat4 ditherTable = mat4(
 
 //https://www.shadertoy.com/view/tsKGDm
 vec4 dithered(vec2 uv, float ditherStrength) {
-    //pixelate uv coordinates
     vec2 pixelPos = floor(uv * PIXEL_SCREEN_RES);
     vec2 pixelUV = pixelPos / PIXEL_SCREEN_RES;
+
     //get texture color (hardcodedly)
     vec3 color = (texture(ColorTex, pixelUV) + radialBlurColor(pixelUV, 200, 1.0, 0.99)).xyz;
 
@@ -273,17 +273,74 @@ vec4 crosshatch(vec2 fragCoord) {
     fragColor.w = 1.;
     return fragColor;
 }
+const mat3 GAUSSIAN_KERNEL = mat3(
+            1. / 16., 2. / 16., 1. / 16.,
+            2. / 16., 4. / 16., 2. / 16.,
+            1. / 16., 2. / 16., 1. / 16.
+            );
+
+vec4 gaussianBlurColor(vec2 uv) {
+    vec2 pixelPos = floor(uv * SCREEN_RES);
+    vec4 outColor = vec4(0);
+
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            vec2 neighborPixel = pixelPos + vec2(dx, dy);
+            vec2 neigborUV = neighborPixel / SCREEN_RES;
+            outColor += texture(ColorTex, neigborUV) * GAUSSIAN_KERNEL[dy + 1][dx + 1];
+            outColor += radialBlurColor(neigborUV, 200, 1.0, 0.99)  * GAUSSIAN_KERNEL[dy + 1][dx + 1];
+        }
+    }
+    return outColor;
+}
+
+uniform bool IsMirrorXEnabled;
+uniform bool IsMirrorYEnabled;
+uniform bool IsFisheyeEnabled;
+uniform bool IsKaleidoscopeEnabled;
+
+uniform bool IsHatchingEnabled;
+uniform bool IsDitheringEnabled;
+uniform bool IsBlurEnabled;
+uniform bool IsGrayscaleEnabled;
 
 void main() {
     vec2 uv = TexCoords;
-    //    uv = kaleidoscopeUV(uv);
-    //    uv = fisheye(uv, 0.8);
 
-    //    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / far;
+    if (IsMirrorXEnabled) {
+        uv.x = 1.0 - uv.x;
+    }
+    if (IsMirrorYEnabled) {
+        uv.y = 1.0 - uv.y;
+    }
+    if (IsFisheyeEnabled) {
+        uv = fisheye(uv, 0.8);
+    }
+    if (IsKaleidoscopeEnabled) {
+        uv = kaleidoscopeUV(uv);
+    }
+
+    //if (IsDepthEnabled) {
+    //    float depth = linearizeDepth(texture(DepthTex, TexCoords).r) / FAR;
     //    FragColor = vec4(depth, depth, depth, 1);
-    //    FragColor = vec4(1.0) - texture(ColorTex, TexCoords);
+    //    FragColor = texture(LightTex, TexCoords);
+    //}
+    vec4 outColor = vec4(0.0);
 
-    //    FragColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
-    //    FragColor = dithered(uv, 0.005);
-    FragColor = crosshatch(uv);
+    if (IsHatchingEnabled) {
+        outColor = crosshatch(uv);
+    } else if (IsDitheringEnabled) {
+        outColor = dithered(uv, 0.005);
+    } else if (IsBlurEnabled) {
+        outColor = gaussianBlurColor(uv);
+    } else {
+        //default rendering
+        outColor = texture(ColorTex, uv) + radialBlurColor(uv, 200, 1.0, 0.99);
+    }
+
+    if (IsGrayscaleEnabled) {
+        float luminance = luminance(outColor.xyz);
+        outColor.xyz = vec3(luminance);
+    }
+    FragColor = outColor;
 }

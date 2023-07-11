@@ -5,6 +5,18 @@
 #include "model.hpp"
 #include "structs.hpp"
 
+//helper struct to store planet information
+struct Planet {
+  //scale of the planet model
+  float diameter;
+  //distance from sun (or respective planet) that is being orbited
+  float orbitRadius;
+  //duration for one orbit in seconds
+  float orbitPeriod;
+  //duration of rotation around self in seconds
+  float rotationPeriod;
+};
+
 // gpu representation of model
 class ApplicationSolar : public Application {
  public:
@@ -21,11 +33,15 @@ class ApplicationSolar : public Application {
   void resizeCallback(unsigned width, unsigned height);
 
   // draw all objects
-  void render() const;
+  void render() override;
+  void rotatePlanets(double timePassed);
 
- protected:
+protected:
   void initializeShaderPrograms();
   void initializeGeometry();
+  void initializePlanets();
+  void initialSceneGraph();
+
   // update uniform values
   void uploadUniforms();
   // upload projection matrix
@@ -33,6 +49,7 @@ class ApplicationSolar : public Application {
   // upload view matrix
   void uploadView();
 
+  std::map<std::string, Planet> planetData;
   // cpu representation of model
   model_object planet_object;
   
@@ -40,6 +57,8 @@ class ApplicationSolar : public Application {
   glm::fmat4 m_view_transform;
   // camera projection matrix
   glm::fmat4 m_view_projection;
+
+  double lastRenderTime;
 };
 
 #endif

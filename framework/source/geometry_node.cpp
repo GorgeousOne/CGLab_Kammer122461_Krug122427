@@ -29,14 +29,22 @@ void GeometryNode::render(std::map<std::string, shader_program> const& shaders) 
   //upload combined transformation matrices for geometry to the shader
   glUniformMatrix4fv(shaders.at(shader).u_locs.at("ModelMatrix"), 1, GL_FALSE, glm::value_ptr(model_matrix));
 
-  //extra matrix for normal transformation to keep them orthogonal to surface
-  glm::fmat4 normal_matrix = glm::inverseTranspose(model_matrix);
-  //also transform normals
-  glUniformMatrix4fv(shaders.at(shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
-
+  if (shader == "planet") {
+    //extra matrix for normal transformation to keep them orthogonal to surface
+    glm::fmat4 normal_matrix = glm::inverseTranspose(model_matrix);
+    //also transform normals
+    glUniformMatrix4fv(shaders.at(shader).u_locs.at("NormalMatrix"), 1, GL_FALSE, glm::value_ptr(normal_matrix));
+  }
   //bind the VAO to draw
   glBindVertexArray(geometry.vertex_AO);
-  glDrawElements(geometry.draw_mode, geometry.num_elements, model::INDEX.type, NULL);
+
+  //draw vertices accorinf to indices
+  if (geometry.has_indices) {
+    glDrawElements(geometry.draw_mode, geometry.num_elements, model::INDEX.type, NULL);
+  //or just draw all vertices
+  } else {
+    glDrawArrays(geometry.draw_mode, 0, geometry.num_elements);
+  }
 
   //continue with default behaviour, render all children
   Node::render(shaders);

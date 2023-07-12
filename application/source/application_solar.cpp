@@ -9,7 +9,10 @@
 #include "geometry_node.hpp"
 
 #include <glbinding/gl/gl.h>
-// use gl definitions from glbinding 
+// import for glm::linearRand function
+#include <glm/gtc/random.hpp>
+
+// use gl definitions from glbinding
 using namespace gl;
 
 //dont load gl bindings from glfw
@@ -98,21 +101,26 @@ void ApplicationSolar::uploadView() {
   glm::fmat4 view_transform = glm::inverse(camera->getViewTransform());
 
   // upload matrix to shader on gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"),
-                     1, GL_FALSE, glm::value_ptr(view_transform));
+  for (auto& shader : m_shaders) {
+    glUseProgram(shader.second.handle);
+    glUniformMatrix4fv(shader.second.u_locs.at("ViewMatrix"), 1, GL_FALSE, glm::value_ptr(view_transform));
+  }
 }
 
 void ApplicationSolar::uploadProjection() {
   // upload matrix to gpu
-  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"),
-                     1, GL_FALSE, glm::value_ptr(camera->getProjectionMatrix()));
+  glm::fmat4 projection = camera->getProjectionMatrix();
+
+  for (auto& shader : m_shaders) {
+    // bind shader to which to upload unforms
+    glUseProgram(shader.second.handle);
+    // upload uniform values to new locations
+    glUniformMatrix4fv(shader.second.u_locs.at("ProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection));
+  }
 }
 
 // update uniform locations
 void ApplicationSolar::uploadUniforms() {
-  // bind shader to which to upload unforms
-  glUseProgram(m_shaders.at("planet").handle);
-  // upload uniform values to new locations
   uploadView();
   uploadProjection();
 }
@@ -122,14 +130,22 @@ void ApplicationSolar::uploadUniforms() {
 void ApplicationSolar::initializeShaderPrograms() {
   // create a map where shaders loaded from files are stored in
   m_shaders.emplace("planet", shader_program{{
-    {GL_VERTEX_SHADER,m_resource_path + "shaders/simple.vert"},
-     {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+      {GL_VERTEX_SHADER,m_resource_path + "shaders/simple.vert"},
+      {GL_FRAGMENT_SHADER, m_resource_path + "shaders/simple.frag"}}});
+  //shader for stars
+  m_shaders.emplace("wirenet", shader_program{{
+      {GL_VERTEX_SHADER, m_resource_path + "shaders/vao.vert"},
+      {GL_FRAGMENT_SHADER, m_resource_path + "shaders/vao.frag"}}});
 
   // setup uniform variables for each shader that can be used to send information to shaders
   m_shaders.at("planet").u_locs["NormalMatrix"] = -1;
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
+
+  m_shaders.at("wirenet").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("wirenet").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("wirenet").u_locs["ProjectionMatrix"] = -1;
 }
 
 // load 3D models
@@ -173,6 +189,63 @@ void ApplicationSolar::initializeGeometry() {
   planet_object.draw_mode = GL_TRIANGLES;
   // transfer number of indices to model object
   planet_object.num_elements = GLsizei(planet_model.indices.size());
+  planet_object.has_indices = true;
+
+  initializeStars();
+}
+
+//Assignment 2.1 - create and display stars geometry
+
+//creates a geometry object with many single vertices rendered as colored stars
+void ApplicationSolar::initializeStars() {
+  int starCount = 4000;
+  float maxDistance = 50;
+  std::vector<GLfloat> starData{};
+
+  for (int i = 0; i < starCount; ++i) {
+    //create random star xyz position in a certain range
+    starData.emplace_back(glm::linearRand(-maxDistance, maxDistance));
+    starData.emplace_back(glm::linearRand(-maxDistance, maxDistance));
+    starData.emplace_back(glm::linearRand(-maxDistance, maxDistance));
+    //assign a random RGB color to each star
+    starData.emplace_back(glm::linearRand(0.f, 1.f));
+    starData.emplace_back(glm::linearRand(0.f, 1.f));
+    starData.emplace_back(glm::linearRand(0.f, 1.f));
+  }
+  stars_object.draw_mode = GL_POINTS;
+  stars_object.num_elements = starCount;
+  uploadGeometryObject(stars_object, starData, std::vector<GLuint>{}, std::vector<ShaderAttribute>{
+      ShaderAttribute{0, 3, 6, 0},
+      ShaderAttribute{1, 3, 6, 3}
+  });
+}
+
+//helper function it easily upload a geometry object to the gpu
+void ApplicationSolar::uploadGeometryObject(
+    model_object &geometryObject,
+    const std::vector<GLfloat> &modelData,
+    const std::vector<GLuint> &indices,
+    const std::vector<ShaderAttribute> &attributes) {
+
+  glGenVertexArrays(1, &geometryObject.vertex_AO);
+  glBindVertexArray(geometryObject.vertex_AO);
+
+  glGenBuffers(1, &geometryObject.vertex_BO);
+  glBindBuffer(GL_ARRAY_BUFFER, geometryObject.vertex_BO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * modelData.size(), modelData.data(), GL_STATIC_DRAW);
+
+  for (ShaderAttribute const& attrib : attributes) {
+    glEnableVertexAttribArray(attrib.index);
+    glVertexAttribPointer(attrib.index, attrib.size, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * attrib.stride, (GLvoid *) (attrib.offset * sizeof(GLfloat)));
+  }
+  //only upload indices if the object has any
+  if (indices.empty()) {
+    geometryObject.has_indices = false;
+  } else {
+    glGenBuffers(1, &geometryObject.element_BO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometryObject.element_BO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), indices.data(), GL_STATIC_DRAW);
+  }
 }
 
 //Assignment 1.2 - display planets revolving around sun
@@ -208,7 +281,7 @@ void ApplicationSolar::initialSceneGraph() {
     }
     //create a holder and a geometry node for each planet
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
+    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "wirenet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //translate each planet away from the sun
@@ -233,6 +306,11 @@ void ApplicationSolar::initialSceneGraph() {
   auto earth = root->getChild("earth-hold");
   moonHolder->addChild(moonGeometry);
   earth->addChild(moonHolder);
+
+  //Assignment 2.1 - create and display stars geometry
+
+  std::shared_ptr<Node> stars = std::make_shared<GeometryNode>("stars", stars_object, "wirenet");
+  root->addChild(stars);
 }
 
 //Assignment 1.3 - implement camera controls with mouse and keyboard
@@ -267,7 +345,7 @@ void ApplicationSolar::keyCallback(int key, int action, int mods) {
 
 //convert mouse movement in screen X direction to yaw rotation and Y movement to pitch rotation
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
-  float sensitivity = .02f;
+  float sensitivity = .01f;
   camera->rotate(-pos_x * sensitivity, -pos_y * sensitivity);
   uploadView();
 }

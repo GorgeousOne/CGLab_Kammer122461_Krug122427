@@ -18,6 +18,20 @@ struct Planet {
   float rotationPeriod;
 };
 
+//helper struct to easily define how VAO data is structured
+//used to create the "layout" variables in shaders
+struct ShaderAttribute {
+  //index of the attribute
+  GLuint index;
+  //number of floats for one attribute
+  GLint size;
+  //number of elements between 2 objects
+  unsigned int stride;
+  //offset from the 0th element in the VAO
+  unsigned int offset;
+};
+
+
 // gpu representation of model
 class ApplicationSolar : public Application {
  public:
@@ -40,6 +54,7 @@ class ApplicationSolar : public Application {
 protected:
   void initializeShaderPrograms();
   void initializeGeometry();
+  void initializeStars();
   void initializePlanets();
   void initialSceneGraph();
 
@@ -55,8 +70,11 @@ protected:
   std::map<std::string, Planet> planetData;
   // cpu representation of model
   model_object planet_object;
-  
+  model_object stars_object;
+
   double lastRenderTime;
+
+  void uploadGeometryObject(model_object &geometryObject, const std::vector<GLfloat> &modelData, const std::vector<GLuint> &indices, const std::vector<ShaderAttribute> &attributes);
 };
 
 #endif

@@ -123,4 +123,5 @@ std::ostream& operator<<(std::ostream& os, Node const& node) {
   for (auto& pair : node.children) {
     os << *pair.second << std::endl;
   }
+  return os;
 }

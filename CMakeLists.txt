@@ -61,7 +61,8 @@ include_directories(application/include)
 add_executable(
         solar_system application/source/application_solar.cpp
         framework/source/node.cpp
-        framework/source/geometry_node.cpp)
+        framework/source/geometry_node.cpp
+        framework/source/camera_node.cpp)
 target_link_libraries(solar_system framework)
 
 # MacOS doesnt support simple compat mode required for examples

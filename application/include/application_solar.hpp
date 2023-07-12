@@ -4,6 +4,7 @@
 #include "application.hpp"
 #include "model.hpp"
 #include "structs.hpp"
+#include "camera_node.hpp"
 
 //helper struct to store planet information
 struct Planet {
@@ -49,15 +50,12 @@ protected:
   // upload view matrix
   void uploadView();
 
+  std::shared_ptr<CameraNode> camera;
+
   std::map<std::string, Planet> planetData;
   // cpu representation of model
   model_object planet_object;
   
-  // camera transform matrix
-  glm::fmat4 m_view_transform;
-  // camera projection matrix
-  glm::fmat4 m_view_projection;
-
   double lastRenderTime;
 };
 

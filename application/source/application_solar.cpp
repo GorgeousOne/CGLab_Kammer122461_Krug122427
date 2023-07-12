@@ -23,12 +23,16 @@ using namespace gl;
 #include <iostream>
 
 ApplicationSolar::ApplicationSolar(std::string const& resource_path)
- :Application{resource_path}
- ,planet_object{}
- ,m_view_transform{glm::translate(glm::fmat4{}, glm::fvec3{0.0f, 0.0f, 4.0f})}
- ,m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)}
- ,lastRenderTime{0}
-{
+ : Application{resource_path}
+ , camera{nullptr}
+ , planet_object{}
+ , lastRenderTime{0} {
+
+  //creates a camera with a projection matrix to convert 3D coordinates to 2D perspective coordinates
+  camera = std::make_shared<CameraNode>("camera", utils::calculate_projection_matrix(initial_aspect_ratio));
+  camera->setPosition(glm::fvec3(0, 10, 0));
+  camera->setPitch(-.5f * glm::pi<float>());
+
   initializeGeometry();
   initializeShaderPrograms();
   initializePlanets();
@@ -89,17 +93,19 @@ void ApplicationSolar::rotatePlanets(double timePassed) {
 }
 
 void ApplicationSolar::uploadView() {
-  // vertices are transformed in camera space, so camera transform must be inverted
-  glm::fmat4 view_matrix = glm::inverse(m_view_transform);
-  // upload matrix to gpu
+  // transformations are relative, so to render everything from the camera's perspective
+  // vertices are transformed into camera space, so camera transform needs to be inverted
+  glm::fmat4 view_transform = glm::inverse(camera->getViewTransform());
+
+  // upload matrix to shader on gpu
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"),
-                     1, GL_FALSE, glm::value_ptr(view_matrix));
+                     1, GL_FALSE, glm::value_ptr(view_transform));
 }
 
 void ApplicationSolar::uploadProjection() {
   // upload matrix to gpu
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"),
-                     1, GL_FALSE, glm::value_ptr(m_view_projection));
+                     1, GL_FALSE, glm::value_ptr(camera->getProjectionMatrix()));
 }
 
 // update uniform locations
@@ -126,7 +132,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
 }
 
-// load models
+// load 3D models
 void ApplicationSolar::initializeGeometry() {
   model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL);
 
@@ -171,9 +177,9 @@ void ApplicationSolar::initializeGeometry() {
 
 //Assignment 1.2 - display planets revolving around sun
 
-//setup a map with dimensions data of each planet
+//set up a map with dimensions data of each planet
 void ApplicationSolar::initializePlanets() {
-  // Create the planet data with name, diameter, orbit radius and orbital period in seconds
+  // create the planet data with name, diameter, orbit radius and orbital period in seconds
   planetData.emplace("mercury", Planet{.2f, 6, 4, 1});
   planetData.emplace("venus", Planet{.3f, 7, 8, 1.5});
   planetData.emplace("earth", Planet{.5, 9, 15, 2});
@@ -185,6 +191,8 @@ void ApplicationSolar::initializePlanets() {
   planetData.emplace("moon", Planet{.2f, 1, 5, 4});
   planetData.emplace("sun", Planet{5, 0, 120, 100});
 }
+
+//Assignment 1.2 - display planets revolving around sun
 
 // add all planets as geometry nodes to to the scene graph
 void ApplicationSolar::initialSceneGraph() {
@@ -227,28 +235,47 @@ void ApplicationSolar::initialSceneGraph() {
   earth->addChild(moonHolder);
 }
 
+//Assignment 1.3 - implement camera controls with mouse and keyboard
+
 ///////////////////////////// callback functions for window events ////////////
 // handle key input
 void ApplicationSolar::keyCallback(int key, int action, int mods) {
-  if (key == GLFW_KEY_W  && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-    m_view_transform = glm::translate(m_view_transform, glm::fvec3{0.0f, 0.0f, -0.1f});
-    uploadView();
+  if (action != GLFW_PRESS && action != GLFW_REPEAT) {
+    return;
   }
-  else if (key == GLFW_KEY_S  && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-    m_view_transform = glm::translate(m_view_transform, glm::fvec3{0.0f, 0.0f, 0.1f});
-    uploadView();
+  glm::fvec3 movement = glm::fvec3(0);
+  float speed = 0.3f;
+
+  //update movement vector if movement keys are pressed
+  if (key == GLFW_KEY_W) {
+    movement += camera->getForward() * speed;
   }
+  if (key == GLFW_KEY_S) {
+    movement -= camera->getForward() * speed;
+  }
+  if (key == GLFW_KEY_A) {
+    movement -= camera->getRight() * speed;
+  }
+  if (key == GLFW_KEY_D) {
+    movement += camera->getRight() * speed;
+  }
+  camera->translate(movement);
+  uploadView();
 }
 
-//handle delta mouse movement input
+//Assignment 1.3 - implement camera controls with mouse and keyboard
+
+//convert mouse movement in screen X direction to yaw rotation and Y movement to pitch rotation
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
-  // mouse handling
+  float sensitivity = .02f;
+  camera->rotate(-pos_x * sensitivity, -pos_y * sensitivity);
+  uploadView();
 }
 
 //handle resizing
 void ApplicationSolar::resizeCallback(unsigned width, unsigned height) {
   // recalculate projection matrix for new aspect ration
-  m_view_projection = utils::calculate_projection_matrix(float(width) / float(height));
+  camera->setProjectionMatrix(utils::calculate_projection_matrix(float(width) / float(height)));
   // upload new projection matrix
   uploadProjection();
 }

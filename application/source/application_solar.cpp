@@ -192,6 +192,7 @@ void ApplicationSolar::initializeGeometry() {
   planet_object.has_indices = true;
 
   initializeStars();
+  initializeOrbit();
 }
 
 //Assignment 2.1 - create and display stars geometry
@@ -220,6 +221,37 @@ void ApplicationSolar::initializeStars() {
   });
 }
 
+//Assignment 2.2 - display orbits of the planets
+
+//creates one orbit ring geometry used and scaled for all planets
+void ApplicationSolar::initializeOrbit() {
+  int vertexCount = 200;
+  std::vector<GLfloat> orbitVerts{};
+  std::vector<GLuint> orbitIndices{};
+
+  float TWO_PI = 2 * glm::pi<float>();
+
+  //calculate with sine and cosine positions for every point on a circle
+  for (int i = 0; i < vertexCount; ++i) {
+    //orbit xyz vertex position
+    orbitVerts.emplace_back(glm::cos(TWO_PI * i / vertexCount));
+    orbitVerts.emplace_back(0);
+    orbitVerts.emplace_back(glm::sin(TWO_PI * i / vertexCount));
+    //orbit RGB color
+    orbitVerts.emplace_back(1);
+    orbitVerts.emplace_back(1);
+    orbitVerts.emplace_back(1);
+    //vertex index
+    orbitIndices.emplace_back(i);
+  }
+  orbit_object.draw_mode = GL_LINE_LOOP;
+  orbit_object.num_elements = vertexCount;
+  orbit_object.has_indices = true;
+  uploadGeometryObject(orbit_object, orbitVerts, orbitIndices, std::vector<ShaderAttribute>{
+      ShaderAttribute{0, 3, 6, 0},
+      ShaderAttribute{1, 3, 6, 3}
+  });}
+
 //helper function it easily upload a geometry object to the gpu
 void ApplicationSolar::uploadGeometryObject(
     model_object &geometryObject,
@@ -239,9 +271,7 @@ void ApplicationSolar::uploadGeometryObject(
     glVertexAttribPointer(attrib.index, attrib.size, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * attrib.stride, (GLvoid *) (attrib.offset * sizeof(GLfloat)));
   }
   //only upload indices if the object has any
-  if (indices.empty()) {
-    geometryObject.has_indices = false;
-  } else {
+  if (geometryObject.has_indices) {
     glGenBuffers(1, &geometryObject.element_BO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometryObject.element_BO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), indices.data(), GL_STATIC_DRAW);
@@ -281,7 +311,7 @@ void ApplicationSolar::initialSceneGraph() {
     }
     //create a holder and a geometry node for each planet
     std::shared_ptr<Node> planetHolder = std::make_shared<Node>(name + "-hold");
-    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "wirenet");
+    std::shared_ptr<GeometryNode> planetGeometry = std::make_shared<GeometryNode>(name + "-geom", planet_object, "planet");
 
     glm::fmat4 transform = glm::fmat4(1);
     //translate each planet away from the sun
@@ -294,18 +324,31 @@ void ApplicationSolar::initialSceneGraph() {
     //add planet to scene graph
     root->addChild(planetHolder);
     planetHolder->addChild(planetGeometry);
+
+    //Assignment 2.2 - display orbits of the planets
+
+    //add an orbit to all planets (but not the sun)
+    if (name != "sun") {
+      std::shared_ptr<Node> planetOrbit = std::make_shared<GeometryNode>(name + "-orbit", orbit_object, "wirenet");
+      planetOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(planet.orbitRadius)));
+      root->addChild(planetOrbit);
+    }
   }
   //create moon
   std::shared_ptr<Node> moonHolder = std::make_shared<Node>("moon-hold");
   std::shared_ptr<GeometryNode> moonGeometry = std::make_shared<GeometryNode>("moon-geom", planet_object, "planet");
+  std::shared_ptr<Node> moonOrbit = std::make_shared<GeometryNode>("moon-orbit", orbit_object, "wirenet");
 
   Planet moonData = planetData.at("moon");
-  moonHolder->setLocalTransform(glm::translate(glm::fmat4(1), glm::fvec3(moonData.orbitRadius, -.3f, 0)));
+  moonGeometry->setLocalTransform(glm::scale(glm::fmat4(1), glm::vec3(moonData.diameter)));
+  moonHolder->setLocalTransform(glm::translate(glm::fmat4(1), glm::fvec3(moonData.orbitRadius, 0, 0)));
+  moonOrbit->setLocalTransform(glm::scale(glm::mat4(1), glm::vec3(moonData.orbitRadius)));
 
   //add moon to scene graph rotating around earth
   auto earth = root->getChild("earth-hold");
   moonHolder->addChild(moonGeometry);
   earth->addChild(moonHolder);
+  earth->addChild(moonOrbit);
 
   //Assignment 2.1 - create and display stars geometry
 

@@ -55,6 +55,8 @@ protected:
   void initializeShaderPrograms();
   void initializeGeometry();
   void initializeStars();
+  void initializeOrbit();
+
   void initializePlanets();
   void initialSceneGraph();
 
@@ -71,6 +73,7 @@ protected:
   // cpu representation of model
   model_object planet_object;
   model_object stars_object;
+  model_object orbit_object;
 
   double lastRenderTime;
 

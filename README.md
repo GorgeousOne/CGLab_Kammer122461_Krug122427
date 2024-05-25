@@ -1,3 +1,20 @@
+# Opengl Project
+
+![example.jpg](images%2Fexample.jpg)
+
+This is a university project for the course "Computer Graphics" at the Bauhaus University.
+The goal was to create a 3D scene of a solar system with C++, OpenGL and GLSL. 
+
+For the task of implementing different shaders, we chose to implement
+* toon lighting
+* kaleidoscope vision
+* crosshatch shading
+* fish eye lens
+* pixelated dithering
+* god rays
+
+These can be toggled by pressing the keys 1-5.  
+![shaders.jpg](images%2Fshaders.jpg)
 ## OpenGLFramework
 is a small cross-platform framework for learning OpenGL programming
 
